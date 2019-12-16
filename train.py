@@ -89,7 +89,7 @@ def main():
         count_loss_hist = []
         for i, (X, density, count) in enumerate(train_loader):
             # copy the tensors to GPU (if available)
-            X = X.to(device)
+            X = X.contiguous().to(device)
             density = density.to(device)
             count = count.to(device)
 

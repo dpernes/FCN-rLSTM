@@ -78,6 +78,7 @@ class FCN_rLSTM(nn.Module):
             # X has shape (N, C, H, W)
             N, C, H, W = X.shape
 
+        print('X', X.shape)
         h1 = self.conv_blocks[0](X)
         h2 = self.conv_blocks[1](h1)
         h3 = self.conv_blocks[2](h2)
@@ -96,6 +97,7 @@ class FCN_rLSTM(nn.Module):
             count = count_fcn + count_lstm  # predicted vehicle count
         else:
             density = h.reshape(N, 1, H//4, W//4)  # predicted density map
-            count = count_fcn  # predicted vehicle count
+            h = h.reshape(N, -1)
+            count = h.sum(dim=1)  # predicted vehicle count
 
         return density, count
