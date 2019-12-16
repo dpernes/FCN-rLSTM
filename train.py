@@ -89,7 +89,7 @@ def main():
         count_loss_hist = []
         for i, (X, density, count) in enumerate(train_loader):
             # copy the tensors to GPU (if available)
-            X = X.contiguous().to(device)
+            X = X.to(device)
             density = density.to(device)
             count = count.to(device)
 
@@ -123,7 +123,7 @@ def main():
         if args['use_visdom']:
             plt.plot('mse', 'train', 'global loss', epoch, train_loss)
             plt.plot('mse', 'train', 'density loss', epoch, train_density_loss)
-            plt.plot('mse', 'train', 'density loss', epoch, train_count_loss)
+            plt.plot('mse', 'train', 'count loss', epoch, train_count_loss)
 
         if valid_loader is None:
             continue
@@ -164,7 +164,7 @@ def main():
         if args['use_visdom']:
             plt.plot('mse', 'valid', 'global loss', epoch, valid_loss)
             plt.plot('mse', 'valid', 'density loss', epoch, valid_density_loss)
-            plt.plot('mse', 'valid', 'density loss', epoch, valid_count_loss)
+            plt.plot('mse', 'valid', 'count loss', epoch, valid_count_loss)
 
     torch.save(model.state_dict(), args['model_path'])
 

@@ -7,21 +7,27 @@ import scipy.io
 from skimage import io
 from PIL import Image
 from torch.utils.data import Dataset
+import np_transforms as NP_T
 
 
-def gauss2d(shape, center, sigma):
+def gauss2d(shape, center, sigma, out_shape=None):
     H, W = shape
-    x = np.array(range(W))
-    y = np.array(range(H))
+    if out_shape is None:
+        Ho = H
+        Wo = W
+    else:
+        Ho, Wo = out_shape
+    x = np.array(range(Wo))
+    y = np.array(range(Ho))
     x, y = np.meshgrid(x, y)
-    x = x.astype(float)/W
-    y = y.astype(float)/H
+    x = x.astype(float)/Wo
+    y = y.astype(float)/Ho
     x0 = float(center[0])/W
     y0 = float(center[1])/H
     G = np.exp(-sigma * ((x - x0)**2 + (y - y0)**2))  # Gaussian kernel centered in (x0, y0)
     return G/np.sum(G)  # normalized so it sums to 1
 
-def density_map(shape, centers, sigmas):
+def density_map(shape, centers, sigmas, out_shape=None):
     D = np.zeros(shape)
     for i, (x, y) in enumerate(centers):
         D += gauss2d(shape, (x, y), sigmas[i])
@@ -56,7 +62,12 @@ class Trancos(Dataset):
                 centers.append((x, y))
 
         # compute the density map and get the number of vehicles in the (masked) image
-        density = density_map((X.shape[0], X.shape[1]), centers, self.sigma*np.ones(len(centers)))[:, :, np.newaxis]
+        density = density_map(
+            (X.shape[0], X.shape[1]),
+            centers,
+            self.sigma*np.ones(len(centers)),
+            out_shape=(X.shape[0]//4, X.shape[1]//4))
+        density = density[:, :, np.newaxis]
         count = len(centers)
 
         if self.transform:
@@ -80,7 +91,9 @@ if __name__ == '__main__':
         ax2.imshow(density, cmap='gray')
         ax2.set_title('Density map')
         ax3 = fig.add_subplot(gs[1, :])
-        X_highlight = np.tile(np.mean(X, axis=2, keepdims=True), (1, 1, 3))
+        H, W = X.shape[0:2]
+        Xred = NP_T.Scale((H//4, W//4))(X)
+        X_highlight = np.tile(np.mean(Xred, axis=2, keepdims=True), (1, 1, 3))
         mask = (density > 1e-5)
         X_highlight[:, :, 1] *= (1-density/np.max(density))
         X_highlight[:, :, 2] *= (1-density/np.max(density))

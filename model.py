@@ -78,7 +78,6 @@ class FCN_rLSTM(nn.Module):
             # X has shape (N, C, H, W)
             N, C, H, W = X.shape
 
-        print('X', X.shape)
         h1 = self.conv_blocks[0](X)
         h2 = self.conv_blocks[1](h1)
         h3 = self.conv_blocks[2](h2)
