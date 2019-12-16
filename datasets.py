@@ -28,9 +28,12 @@ def gauss2d(shape, center, sigma, out_shape=None):
     return G/np.sum(G)  # normalized so it sums to 1
 
 def density_map(shape, centers, sigmas, out_shape=None):
-    D = np.zeros(shape)
+    if out_shape is None:
+        D = np.zeros(shape)
+    else:
+        D = np.zeros(out_shape)
     for i, (x, y) in enumerate(centers):
-        D += gauss2d(shape, (x, y), sigmas[i])
+        D += gauss2d(shape, (x, y), sigmas[i], out_shape=out_shape)
     return D
 
 class Trancos(Dataset):
@@ -92,7 +95,7 @@ if __name__ == '__main__':
         ax2.set_title('Density map')
         ax3 = fig.add_subplot(gs[1, :])
         H, W = X.shape[0:2]
-        Xred = NP_T.Scale((H//4, W//4))(X)
+        Xred = 255*(NP_T.Scale((H//4, W//4))(X))
         X_highlight = np.tile(np.mean(Xred, axis=2, keepdims=True), (1, 1, 3))
         mask = (density > 1e-5)
         X_highlight[:, :, 1] *= (1-density/np.max(density))
