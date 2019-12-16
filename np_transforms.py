@@ -15,6 +15,7 @@ except ImportError:
     accimage = None
 import numbers
 from scipy import misc, ndimage
+from skimage.transform import rescale, resize, downscale_local_mean
 import collections
 from torchvision import transforms
 
@@ -448,11 +449,11 @@ class Scale(object):
             if len(pic.shape) == 3:
                 # if 3D image, scale each channel individually
                 for i in range(pic.shape[2]):
-                    img_out[:, :, i] = misc.imresize(pic[:, :, i], (ow, oh), interp=self.interpolation, mode='F')
+                    img_out[:, :, i] = resize(pic[:, :, i], (ow, oh), interp=self.interpolation, mode='F')
                 return img_out
             else:
                 # if 2D image, scale image
-                return misc.imresize(pic, (ow, oh), interp=self.interpolation, mode='F')
+                return resize(pic, (ow, oh), interp=self.interpolation, mode='F')
         else:
             # if size is specified with 2 dimensions apply the scale directly
             # create the output array
@@ -462,11 +463,11 @@ class Scale(object):
 
                 # if 3D image, scale each channel individually
                 for i in range(pic.shape[2]):
-                    img_out[:, :, i] = misc.imresize(pic[:, :, i], self.size, interp=self.interpolation, mode='F')
+                    img_out[:, :, i] = resize(pic[:, :, i], self.size, interp=self.interpolation, mode='F')
                 return img_out
             else:
                 # if 2D image, scale image
-                return misc.imresize(pic, self.size, interp=self.interpolation, mode='F')
+                return resize(pic, self.size, interp=self.interpolation, mode='F')
 
 
 class rgb2xyz(object):
