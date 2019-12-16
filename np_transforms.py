@@ -418,7 +418,6 @@ class Scale(object):
     def __init__(self, size, interpolation="bilinear"):
         assert isinstance(size, int) or (isinstance(size, collections.Iterable) and len(size) == 2)
         self.size = size
-        self.interpolation = interpolation
 
     def __call__(self, pic):
 
@@ -449,11 +448,11 @@ class Scale(object):
             if len(pic.shape) == 3:
                 # if 3D image, scale each channel individually
                 for i in range(pic.shape[2]):
-                    img_out[:, :, i] = resize(pic[:, :, i], (ow, oh), interp=self.interpolation, mode='F')
+                    img_out[:, :, i] = resize(pic[:, :, i], (ow, oh))
                 return img_out
             else:
                 # if 2D image, scale image
-                return resize(pic, (ow, oh), interp=self.interpolation, mode='F')
+                return resize(pic, (ow, oh))
         else:
             # if size is specified with 2 dimensions apply the scale directly
             # create the output array
@@ -463,11 +462,11 @@ class Scale(object):
 
                 # if 3D image, scale each channel individually
                 for i in range(pic.shape[2]):
-                    img_out[:, :, i] = resize(pic[:, :, i], self.size, interp=self.interpolation, mode='F')
+                    img_out[:, :, i] = resize(pic[:, :, i], self.size)
                 return img_out
             else:
                 # if 2D image, scale image
-                return resize(pic, self.size, interp=self.interpolation, mode='F')
+                return resize(pic, self.size)
 
 
 class rgb2xyz(object):
