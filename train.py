@@ -20,7 +20,7 @@ def main():
     parser.add_argument('--lr', default=1e-4, type=float, metavar='', help='learning rate')
     parser.add_argument('--epochs', default=100, type=int, metavar='', help='number of training epochs')
     parser.add_argument('--batch_size', default=8, type=int, metavar='', help='batch size')
-    parser.add_argument('--lambda', default=1., type=float, metavar='', help='trade-off between density estimation and vehicle count losses (eq. 7 in the paper)')
+    parser.add_argument('--lambda', default=1., type=float, metavar='', help='trade-off between density estimation and vehicle count losses (see eq. 7 in the paper)')
     parser.add_argument('--weight_decay', default=0., type=float, metavar='', help='weight decay regularization')
     parser.add_argument('--use_cuda', default=True, type=int, metavar='', help='use CUDA capable GPU')
     parser.add_argument('--use_visdom', default=False, type=int, metavar='', help='use Visdom to visualize plots')

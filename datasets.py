@@ -37,7 +37,7 @@ def density_map(shape, centers, sigmas, out_shape=None):
     return D
 
 class Trancos(Dataset):
-    def __init__(self, train=True, path='./TRANCOS_v3', transform=None, sigma=1e3, density_scale=(4, 4)):
+    def __init__(self, train=True, path='./TRANCOS_v3', transform=None, sigma=1e3, density_scale=(1, 1)):
         self.path = path
         self.transform = transform
         self.sigma = sigma
@@ -83,7 +83,7 @@ class Trancos(Dataset):
         return X, density, count
 
 if __name__ == '__main__':
-    data = Trancos(train=True, path='/home/dpernes/dataserver/DB/TRANCOS_v3/',  transform=NP_T.RandomHorizontalFlip(0.5))
+    data = Trancos(train=True, path='/ctm-hdd-pool01/DB/TRANCOS_v3',  transform=NP_T.RandomHorizontalFlip(0.5))
 
     for i, (X, density, count) in enumerate(data):
         print('Image {}: count={}, density_sum={:.3f}'.format(i, count, np.sum(density)))
@@ -97,9 +97,7 @@ if __name__ == '__main__':
         ax2.imshow(density, cmap='gray')
         ax2.set_title('Density map')
         ax3 = fig.add_subplot(gs[1, :])
-        H, W = X.shape[0:2]
-        Xred = 255*(NP_T.Scale((H//4, W//4))({'image': X, 'target':np.zeros_like(X)}))['image']
-        X_highlight = np.tile(np.mean(Xred, axis=2, keepdims=True), (1, 1, 3))
+        X_highlight = np.tile(np.mean(X, axis=2, keepdims=True), (1, 1, 3))
         mask = (density > 1e-5)
         X_highlight[:, :, 1] *= (1-density/np.max(density))
         X_highlight[:, :, 2] *= (1-density/np.max(density))

@@ -56,18 +56,17 @@ class FCN_rLSTM(nn.Module):
             nn.Sequential(OrderedDict([
                 ('Conv5', nn.Conv2d(1408, 512, (1, 1))),  # 1408 = 128 + 256 + 512 + 512 (hyper-atrous combination)
                 ('ReLU5', nn.ReLU()),
-                ('Deconv1', nn.ConvTranspose2d(512, 256, (3, 3), padding=1)),
+                ('Deconv1', nn.ConvTranspose2d(512, 256, (3, 3), stride=2, padding=1)),
                 ('ReLU_D1', nn.ReLU()),
-                ('Deconv2', nn.ConvTranspose2d(256, 64, (3, 3), padding=1)),
+                ('Deconv2', nn.ConvTranspose2d(256, 64, (3, 3), stride=2, padding=1)),
                 ('ReLU_D2', nn.ReLU()),
                 ('Conv6', nn.Conv2d(64, 1, (1, 1))),
-                ('ReLU6', nn.ReLU()) if self.temporal
-                else ('Sigmoid', nn.Sigmoid()),
+                ('ReLU6', nn.ReLU()),
             ])))
 
         if self.temporal:
             H, W = image_dim
-            self.lstm_block = nn.LSTM(H*W//16, 100, num_layers=3)
+            self.lstm_block = nn.LSTM(H*W, 100, num_layers=3)
             self.final_layer = nn.Linear(100, 1)
 
     def forward(self, X):
