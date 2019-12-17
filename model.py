@@ -61,7 +61,8 @@ class FCN_rLSTM(nn.Module):
                 ('Deconv2', nn.ConvTranspose2d(256, 64, (3, 3), padding=1)),
                 ('ReLU_D2', nn.ReLU()),
                 ('Conv6', nn.Conv2d(64, 1, (1, 1))),
-                ('ReLU6', nn.ReLU()),
+                ('ReLU6', nn.ReLU()) if self.temporal
+                else ('Sigmoid', nn.Sigmoid()),
             ])))
 
         if self.temporal:

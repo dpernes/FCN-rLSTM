@@ -18,9 +18,9 @@ def main():
     parser.add_argument('-m', '--model_path', default='./fcn_rlstm.pth', metavar='', help='model file (output of train)')
     parser.add_argument('-d', '--data_path', default='/ctm-hdd-pool01/DB/TRANCOS_v3', metavar='', help='data directory path')
     parser.add_argument('--valid', default=0.2, type=float, metavar='', help='fraction of the training data for validation')
-    parser.add_argument('--lr', default=1e-3, type=float, metavar='', help='learning rate')
+    parser.add_argument('--lr', default=1e-4, type=float, metavar='', help='learning rate')
     parser.add_argument('--epochs', default=100, type=int, metavar='', help='number of training epochs')
-    parser.add_argument('--batch_size', default=128, type=int, metavar='', help='batch size')
+    parser.add_argument('--batch_size', default=16, type=int, metavar='', help='batch size')
     parser.add_argument('--lambda', default=1., type=float, metavar='', help='trade-off between density estimation and vehicle count losses (eq. 7 in the paper)')
     parser.add_argument('--weight_decay', default=0., type=float, metavar='', help='weight decay regularization')
     parser.add_argument('--use_cuda', default=True, type=int, metavar='', help='use CUDA capable GPU')
@@ -35,7 +35,7 @@ def main():
     np.random.seed(seed=args['seed'])
     torch.manual_seed(args['seed'])
 
-    # if we have a GPU and args['use_cuda'] == True, use the GPU; otherwise, use the CPU
+    # if args['use_cuda'] == True and we have a GPU, use the GPU; otherwise, use the CPU
     device = 'cuda:0' if (args['use_cuda'] and torch.cuda.is_available()) else 'cpu:0'
 
     # define image transformations to be applied to each image in the dataset
@@ -121,9 +121,9 @@ def main():
         print('Train count loss: {:.3f}'.format(train_count_loss))
 
         if args['use_visdom']:
-            plt.plot('mse', 'train', 'global loss', epoch, train_loss)
-            plt.plot('mse', 'train', 'density loss', epoch, train_density_loss)
-            plt.plot('mse', 'train', 'count loss', epoch, train_count_loss)
+            plt.plot('global loss', 'train', 'global loss', epoch, train_loss)
+            plt.plot('density loss', 'train', 'density loss', epoch, train_density_loss)
+            plt.plot('count loss', 'train', 'count loss', epoch, train_count_loss)
 
         if valid_loader is None:
             continue
@@ -162,9 +162,9 @@ def main():
         print()
 
         if args['use_visdom']:
-            plt.plot('mse', 'valid', 'global loss', epoch, valid_loss)
-            plt.plot('mse', 'valid', 'density loss', epoch, valid_density_loss)
-            plt.plot('mse', 'valid', 'count loss', epoch, valid_count_loss)
+            plt.plot('global loss', 'valid', 'global loss', epoch, valid_loss)
+            plt.plot('density loss', 'valid', 'density loss', epoch, valid_density_loss)
+            plt.plot('count loss', 'valid', 'count loss', epoch, valid_count_loss)
 
     torch.save(model.state_dict(), args['model_path'])
 

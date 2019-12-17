@@ -37,12 +37,13 @@ def density_map(shape, centers, sigmas, out_shape=None):
     return D
 
 class Trancos(Dataset):
-    def __init__(self, train=True, path='./TRANCOS_v3', transform=None, sigma=1e3):
+    def __init__(self, train=True, path='./TRANCOS_v3', transform=None, sigma=1e3, density_scale=(4, 4)):
         self.path = path
         self.transform = transform
         self.sigma = sigma
+        self.density_scale = density_scale
 
-        if train:
+        if train:  # train + validation
             self.image_files = [img[:-1] for img in open(os.path.join(self.path, 'image_sets', 'trainval.txt'))]
         else:  # test
             self.image_files = [img[:-1] for img in open(os.path.join(self.path, 'image_sets', 'test.txt'))]
@@ -69,7 +70,7 @@ class Trancos(Dataset):
             (X.shape[0], X.shape[1]),
             centers,
             self.sigma*np.ones(len(centers)),
-            out_shape=(X.shape[0]//4, X.shape[1]//4))
+            out_shape=(X.shape[0]//self.density_scale[0], X.shape[1]//self.density_scale[1]))
         density = density[:, :, np.newaxis]
         count = len(centers)
 
