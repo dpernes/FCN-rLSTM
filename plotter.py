@@ -12,13 +12,13 @@ import numpy as np
 class VisdomLinePlotter(object):
     """Plots to Visdom"""
     def __init__(self, env_name='main', port=8097):
-        self.viz = Visdom(port=port)
+        self.vis = Visdom(port=port)
         self.env = env_name
         self.plots = {}
 
     def plot(self, var_name, split_name, title_name, x, y):
         if var_name not in self.plots:
-            self.plots[var_name] = self.viz.line(
+            self.plots[var_name] = self.vis.line(
                 X=np.array([x, x]),
                 Y=np.array([y, y]),
                 env=self.env,
@@ -29,7 +29,7 @@ class VisdomLinePlotter(object):
                     ylabel=var_name)
                 )
         else:
-            self.viz.line(X=np.array([x]),
+            self.vis.line(X=np.array([x]),
                           Y=np.array([y]),
                           env=self.env,
                           win=self.plots[var_name],
@@ -40,7 +40,7 @@ class VisdomLinePlotter(object):
 class VisdomDictPlotter(object):
     """Plots to Visdom"""
     def __init__(self, env_name='main', port=8097):
-        self.viz = Visdom(port=port)
+        self.vis = Visdom(port=port)
         self.env = env_name
         self.plots = {}
 
@@ -48,7 +48,7 @@ class VisdomDictPlotter(object):
         keys = list(dct.keys())
         values = list(dct.values())
         if var_name not in self.plots:
-            self.plots[var_name] = self.viz.bar(
+            self.plots[var_name] = self.vis.bar(
                 X=np.array(values),
                 env=self.env,
                 opts=dict(
@@ -58,7 +58,7 @@ class VisdomDictPlotter(object):
                     ylabel=var_name)
                 )
         else:
-            self.viz.bar(X=np.array(values),
+            self.vis.bar(X=np.array(values),
                          env=self.env,
                          win=self.plots[var_name],
                          opts=dict(
@@ -72,13 +72,25 @@ class VisdomDictPlotter(object):
 class VisdomImgsPlotter(object):
     """Plots to Visdom"""
     def __init__(self, env_name='main', port=8097):
-        self.viz = Visdom(port=port)
+        self.vis = Visdom(port=port)
         self.env = env_name
         self.plots = {}
+
     def plot(self, var_name, images, labels):
-        self.plots[var_name] = self.viz.images(
-            images,
-            env=self.env,
-            opts=dict(
-                caption=str([l.item() for l in labels]))
+        if var_name not in self.plots:
+            self.plots[var_name] = self.vis.images(
+                images,
+                env=self.env,
+                opts=dict(
+                    title=var_name,
+                    caption=labels)
+            )
+        else:
+            self.vis.images(
+                images,
+                env=self.env,
+                win=self.plots[var_name],
+                opts=dict(
+                    title=var_name,
+                    caption=labels)
             )

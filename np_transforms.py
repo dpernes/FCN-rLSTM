@@ -5,7 +5,7 @@ from __future__ import division
 import random
 
 import numpy as np
-from skimage.transform import resize
+import skimage.transform as SkT
 import torchvision.transforms.functional as TF
 
 
@@ -63,8 +63,8 @@ class Scale(object):
 
         new_h, new_w = int(new_h), int(new_w)
 
-        image = resize(image, (new_h, new_w))
-        target = resize(target, (new_h, new_w))
+        image = SkT.resize(image, (new_h, new_w))
+        target = SkT.resize(target, (new_h, new_w))
 
         return {'image': image, 'target': target}
 

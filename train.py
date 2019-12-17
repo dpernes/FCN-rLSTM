@@ -10,6 +10,7 @@ import np_transforms as NP_T
 import plotter
 from datasets import Trancos
 from model import FCN_rLSTM
+from utils import show_images
 
 
 def main():
@@ -19,8 +20,8 @@ def main():
     parser.add_argument('--valid', default=0.2, type=float, metavar='', help='fraction of the training data for validation')
     parser.add_argument('--lr', default=1e-4, type=float, metavar='', help='learning rate')
     parser.add_argument('--epochs', default=100, type=int, metavar='', help='number of training epochs')
-    parser.add_argument('--batch_size', default=8, type=int, metavar='', help='batch size')
-    parser.add_argument('--lambda', default=1., type=float, metavar='', help='trade-off between density estimation and vehicle count losses (see eq. 7 in the paper)')
+    parser.add_argument('--batch_size', default=1, type=int, metavar='', help='batch size')
+    parser.add_argument('--lambda', default=1e-2, type=float, metavar='', help='trade-off between density estimation and vehicle count losses (see eq. 7 in the paper)')
     parser.add_argument('--weight_decay', default=0., type=float, metavar='', help='weight decay regularization')
     parser.add_argument('--use_cuda', default=True, type=int, metavar='', help='use CUDA capable GPU')
     parser.add_argument('--use_visdom', default=False, type=int, metavar='', help='use Visdom to visualize plots')
@@ -52,7 +53,7 @@ def main():
     if args['valid'] > 0:
         valid_indices = set(random.sample(range(len(train_data)), int(len(train_data)*args['valid'])))  # randomly choose some images for validation
         valid_data = Subset(valid_data, list(valid_indices))
-        train_indices = set(range(len(train_data))) - valid_indices  # remaining indices are for training
+        train_indices = set(range(len(train_data))) - valid_indices  # remaining images are for training
         train_data = Subset(train_data, list(train_indices))
     else:
         valid_data = None
@@ -75,8 +76,10 @@ def main():
 
     # Visdom is a tool to visualize plots during training
     if args['use_visdom']:
-        plt = plotter.VisdomLinePlotter(env_name=args['visdom_env'],
-                                        port=args['visdom_port'])
+        loss_plt = plotter.VisdomLinePlotter(env_name=args['visdom_env'],
+                                             port=args['visdom_port'])
+        img_plt = plotter.VisdomImgsPlotter(env_name=args['visdom_env'],
+                                            port=args['visdom_port'])
 
     # training routine
     for epoch in range(args['epochs']):
@@ -86,11 +89,10 @@ def main():
         loss_hist = []
         density_loss_hist = []
         count_loss_hist = []
+        X, density, count = None, None, None
         for i, (X, density, count) in enumerate(train_loader):
             # copy the tensors to GPU (if available)
-            X = X.to(device)
-            density = density.to(device)
-            count = count.to(device)
+            X, density, count = X.to(device), density.to(device), count.to(device)
 
             # forward pass through the model
             density_pred, count_pred = model(X)
@@ -104,13 +106,14 @@ def main():
             loss.backward()
             optimizer.step()
 
-            print('{}/{} mini-batch loss: {:.3f}'
-                  .format(i, len(train_loader)-1, loss.item()),
+            print('{}/{} mini-batch loss: {:.3f} | density_loss: {:.3f} | count loss {:.3f}'
+                  .format(i, len(train_loader)-1, loss.item(), density_loss.item(), count_loss.item()),
                   flush=True, end='\r')
             loss_hist.append(loss.item())
             density_loss_hist.append(density_loss.item())
             count_loss_hist.append(count_loss.item())
 
+        # print the average training losses
         train_loss = sum(loss_hist)/len(loss_hist)
         train_density_loss = sum(density_loss_hist)/len(density_loss_hist)
         train_count_loss = sum(count_loss_hist)/len(count_loss_hist)
@@ -120,9 +123,16 @@ def main():
         print('Train count loss: {:.3f}'.format(train_count_loss))
 
         if args['use_visdom']:
-            plt.plot('global loss', 'train', 'global loss', epoch, train_loss)
-            plt.plot('density loss', 'train', 'density loss', epoch, train_density_loss)
-            plt.plot('count loss', 'train', 'count loss', epoch, train_count_loss)
+            # plot the losses
+            loss_plt.plot('global loss', 'train', 'global loss', epoch, train_loss)
+            loss_plt.plot('density loss', 'train', 'density loss', epoch, train_density_loss)
+            loss_plt.plot('count loss', 'train', 'count loss', epoch, train_count_loss)
+
+            # show a few training examples (images + density maps)
+            X, density, count = X.cpu().numpy(), density.cpu().numpy(), count.cpu().numpy()
+            density_pred, count_pred = density_pred.detach().cpu().numpy(), count_pred.detach().cpu().numpy()
+            show_images(img_plt, 'training gt', X, density, count)
+            show_images(img_plt, 'training pred', X, density_pred, count_pred)
 
         if valid_loader is None:
             continue
@@ -131,11 +141,10 @@ def main():
         loss_hist = []
         density_loss_hist = []
         count_loss_hist = []
+        X, density, count = None, None, None
         for i, (X, density, count) in enumerate(valid_loader):
-            # copy the tensors to GPU
-            X = X.to(device)
-            density = density.to(device)
-            count = count.to(device)
+            # copy the tensors to GPU (if available)
+            X, density, count = X.to(device), density.to(device), count.to(device)
 
             # forward pass through the model
             with torch.no_grad():  # no need to compute gradients in validation (faster and uses less memory)
@@ -151,6 +160,7 @@ def main():
             density_loss_hist.append(density_loss.item())
             count_loss_hist.append(count_loss.item())
 
+        # print the average validation losses
         valid_loss = sum(loss_hist)/len(loss_hist)
         valid_density_loss = sum(density_loss_hist)/len(density_loss_hist)
         valid_count_loss = sum(count_loss_hist)/len(count_loss_hist)
@@ -161,9 +171,16 @@ def main():
         print()
 
         if args['use_visdom']:
-            plt.plot('global loss', 'valid', 'global loss', epoch, valid_loss)
-            plt.plot('density loss', 'valid', 'density loss', epoch, valid_density_loss)
-            plt.plot('count loss', 'valid', 'count loss', epoch, valid_count_loss)
+            # plot the losses
+            loss_plt.plot('global loss', 'valid', 'global loss', epoch, valid_loss)
+            loss_plt.plot('density loss', 'valid', 'density loss', epoch, valid_density_loss)
+            loss_plt.plot('count loss', 'valid', 'count loss', epoch, valid_count_loss)
+
+            # show a few training examples (images + density maps)
+            X, density, count = X.cpu().numpy(), density.cpu().numpy(), count.cpu().numpy()
+            density_pred, count_pred = density_pred.detach().cpu().numpy(), count_pred.detach().cpu().numpy()
+            show_images(img_plt, 'valid gt', X, density, count)
+            show_images(img_plt, 'valid pred', X, density_pred, count_pred)
 
     torch.save(model.state_dict(), args['model_path'])
 

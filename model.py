@@ -8,8 +8,11 @@ import matplotlib.pyplot as plt
 import torchvision.transforms.functional as TF
 
 class FCN_rLSTM(nn.Module):
-    def __init__(self, temporal=True, image_dim=None):
+    def __init__(self, temporal=False, image_dim=None):
         super(FCN_rLSTM, self).__init__()
+
+        if temporal and (image_dim is None):
+            raise Exception('If temporal == True, image_dim must be provided')
 
         self.temporal = temporal
 
@@ -56,9 +59,9 @@ class FCN_rLSTM(nn.Module):
             nn.Sequential(OrderedDict([
                 ('Conv5', nn.Conv2d(1408, 512, (1, 1))),  # 1408 = 128 + 256 + 512 + 512 (hyper-atrous combination)
                 ('ReLU5', nn.ReLU()),
-                ('Deconv1', nn.ConvTranspose2d(512, 256, (3, 3), stride=2, padding=1)),
+                ('Deconv1', nn.ConvTranspose2d(512, 256, (3, 3), stride=2, padding=1, output_padding=1)),
                 ('ReLU_D1', nn.ReLU()),
-                ('Deconv2', nn.ConvTranspose2d(256, 64, (3, 3), stride=2, padding=1)),
+                ('Deconv2', nn.ConvTranspose2d(256, 64, (3, 3), stride=2, padding=1, output_padding=1)),
                 ('ReLU_D2', nn.ReLU()),
                 ('Conv6', nn.Conv2d(64, 1, (1, 1))),
                 ('ReLU6', nn.ReLU()),
@@ -86,7 +89,7 @@ class FCN_rLSTM(nn.Module):
         h = self.conv_blocks[4](h)
 
         if self.temporal:
-            density = h.reshape(T, N, 1, H//4, W//4)  # predicted density map
+            density = h.reshape(T, N, 1, H, W)  # predicted density map
 
             h = h.reshape(T, N, -1)
             count_fcn = h.sum(dim=2)
@@ -95,8 +98,7 @@ class FCN_rLSTM(nn.Module):
             count_lstm = self.final_layer(h.reshape(T*N, 100)).reshape(T, N)
             count = count_fcn + count_lstm  # predicted vehicle count
         else:
-            density = h.reshape(N, 1, H//4, W//4)  # predicted density map
-            h = h.reshape(N, -1)
-            count = h.sum(dim=1)  # predicted vehicle count
+            density = h  # predicted density map
+            count = h.sum(dim=(1, 2, 3))  # predicted vehicle count
 
         return density, count

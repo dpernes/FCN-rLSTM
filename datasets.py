@@ -4,44 +4,20 @@ import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.io
+import skimage.transform as SkT
 from skimage import io
-from PIL import Image
 from torch.utils.data import Dataset
+
 import np_transforms as NP_T
+from utils import density_map
 
-
-def gauss2d(shape, center, sigma, out_shape=None):
-    H, W = shape
-    if out_shape is None:
-        Ho = H
-        Wo = W
-    else:
-        Ho, Wo = out_shape
-    x = np.array(range(Wo))
-    y = np.array(range(Ho))
-    x, y = np.meshgrid(x, y)
-    x = x.astype(float)/Wo
-    y = y.astype(float)/Ho
-    x0 = float(center[0])/W
-    y0 = float(center[1])/H
-    G = np.exp(-sigma * ((x - x0)**2 + (y - y0)**2))  # Gaussian kernel centered in (x0, y0)
-    return G/np.sum(G)  # normalized so it sums to 1
-
-def density_map(shape, centers, sigmas, out_shape=None):
-    if out_shape is None:
-        D = np.zeros(shape)
-    else:
-        D = np.zeros(out_shape)
-    for i, (x, y) in enumerate(centers):
-        D += gauss2d(shape, (x, y), sigmas[i], out_shape=out_shape)
-    return D
 
 class Trancos(Dataset):
-    def __init__(self, train=True, path='./TRANCOS_v3', transform=None, sigma=1e3, density_scale=(1, 1)):
+    def __init__(self, train=True, path='./TRANCOS_v3', transform=None, sigma=1e3, size_red=2):
         self.path = path
         self.transform = transform
         self.sigma = sigma
-        self.density_scale = density_scale
+        self.size_red = size_red
 
         if train:  # train + validation
             self.image_files = [img[:-1] for img in open(os.path.join(self.path, 'image_sets', 'trainval.txt'))]
@@ -65,12 +41,18 @@ class Trancos(Dataset):
                 y = int(line.split()[1]) - 1
                 centers.append((x, y))
 
+        # reduce the size of the image by the given amount
+        H_orig, W_orig = X.shape[0], X.shape[1]
+        H_new, W_new = int(X.shape[0]/self.size_red), int(X.shape[1]/self.size_red)
+        if self.size_red > 1:
+            X = SkT.resize(X, (H_new, W_new), preserve_range=True).astype('uint8')
+
         # compute the density map and get the number of vehicles in the (masked) image
         density = density_map(
-            (X.shape[0], X.shape[1]),
+            (H_orig, W_orig),
             centers,
             self.sigma*np.ones(len(centers)),
-            out_shape=(X.shape[0]//self.density_scale[0], X.shape[1]//self.density_scale[1]))
+            out_shape=(H_new, W_new))
         density = density[:, :, np.newaxis]
         count = len(centers)
 
@@ -83,7 +65,7 @@ class Trancos(Dataset):
         return X, density, count
 
 if __name__ == '__main__':
-    data = Trancos(train=True, path='/ctm-hdd-pool01/DB/TRANCOS_v3',  transform=NP_T.RandomHorizontalFlip(0.5))
+    data = Trancos(train=True, path='/ctm-hdd-pool01/DB/TRANCOS_v3', transform=NP_T.RandomHorizontalFlip(0.5))
 
     for i, (X, density, count) in enumerate(data):
         print('Image {}: count={}, density_sum={:.3f}'.format(i, count, np.sum(density)))
@@ -97,10 +79,9 @@ if __name__ == '__main__':
         ax2.imshow(density, cmap='gray')
         ax2.set_title('Density map')
         ax3 = fig.add_subplot(gs[1, :])
-        X_highlight = np.tile(np.mean(X, axis=2, keepdims=True), (1, 1, 3))
-        mask = (density > 1e-5)
-        X_highlight[:, :, 1] *= (1-density/np.max(density))
-        X_highlight[:, :, 2] *= (1-density/np.max(density))
-        ax3.imshow(X_highlight.astype('uint8'))
+        Xh = np.tile(np.mean(X, axis=2, keepdims=True), (1, 1, 3))
+        Xh[:, :, 1] *= (1-density/np.max(density))
+        Xh[:, :, 2] *= (1-density/np.max(density))
+        ax3.imshow(Xh.astype('uint8'))
         ax3.set_title('Highlighted vehicles')
         plt.show()
