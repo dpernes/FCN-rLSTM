@@ -2,22 +2,11 @@
 
 from __future__ import division
 
-import math
 import random
 
 import numpy as np
-import torch
-from numpy import linalg
-
-try:
-    import accimage
-except ImportError:
-    accimage = None
-import numbers
-from scipy import misc, ndimage
-from skimage.transform import rescale, resize, downscale_local_mean
-import collections
-from torchvision import transforms
+from skimage.transform import resize
+import torchvision.transforms.functional as TF
 
 
 def _is_numpy_image(img):
@@ -32,13 +21,52 @@ class ToTensor(object):
     def __call__(self, sample):
         """
         Args:
-            sample: dict containing image and target to be flipped.
+            sample: dict containing np.arrays image and target.
         Returns:
-            image, target: randomly flipped images.
+            sample: dict containing tensors image and target..
         """
         image, target = sample['image'], sample['target']
 
-        return transforms.functional.to_tensor(image), transforms.functional.to_tensor(target)
+        return {'image': TF.to_tensor(image), 'target': TF.to_tensor(target)}
+
+
+class Scale(object):
+    """Rescale the image in a sample to a given size.
+
+    Args:
+        output_size (tuple or int): Desired output size. If tuple, output is
+            matched to output_size. If int, smaller of image edges is matched
+            to output_size keeping aspect ratio the same.
+    """
+
+    def __init__(self, output_size):
+        assert isinstance(output_size, (int, tuple))
+        self.output_size = output_size
+
+    def __call__(self, sample):
+        """
+        Args:
+            sample: dict containing np.arrays image and target.
+        Returns:
+            sample: dict containing scaled np.arrays image and target.
+        """
+        image, target = sample['image'], sample['target']
+
+        h, w = image.shape[:2]
+        if isinstance(self.output_size, int):
+            if h > w:
+                new_h, new_w = self.output_size * h / w, self.output_size
+            else:
+                new_h, new_w = self.output_size, self.output_size * w / h
+        else:
+            new_h, new_w = self.output_size
+
+        new_h, new_w = int(new_h), int(new_w)
+
+        image = resize(image, (new_h, new_w))
+        target = resize(target, (new_h, new_w))
+
+        return {'image': image, 'target': target}
 
 
 class RandomHorizontalFlip(object):
@@ -50,9 +78,9 @@ class RandomHorizontalFlip(object):
     def __call__(self, sample):
         """
         Args:
-            sample: dict containing image and target to be flipped.
+            sample: dict containing np.arrays image and target.
         Returns:
-            image, target: randomly flipped images.
+            sample: dict containing flipped np.arrays image and target.
         """
         image, target = sample['image'], sample['target']
 
@@ -70,8 +98,8 @@ class RandomHorizontalFlip(object):
             target = target.reshape(target.shape[0], target.shape[1], -1)
 
         if random.random() < self.prob:
-            return image[:, ::-1, :].copy()
-        return image
+            return {'image': image[:, ::-1, :].copy(), 'target': target[:, ::-1, :].copy()}
+        return {'image': image, 'target': target}
 
 
 class RandomVerticalFlip(object):
@@ -83,9 +111,9 @@ class RandomVerticalFlip(object):
     def __call__(self, sample):
         """
         Args:
-            sample: dict containing image and target to be flipped.
+            sample: dict containing np.arrays image and target.
         Returns:
-            image, target: randomly flipped images.
+            sample: dict containing flipped np.arrays image and target.
         """
         image, target = sample['image'], sample['target']
 
@@ -103,5 +131,5 @@ class RandomVerticalFlip(object):
             target = target.reshape(target.shape[0], target.shape[1], -1)
 
         if random.random() < self.prob:
-            return image[::-1, :, :].copy(), target[::-1, :, :].copy()
-        return image, target
+            return {'image': image[::-1, :, :].copy(), 'target': target[::-1, :, :].copy()}
+        return {'image': image, 'target': target}

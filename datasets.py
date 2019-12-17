@@ -75,13 +75,15 @@ class Trancos(Dataset):
         count = len(centers)
 
         if self.transform:
+            # apply the transformation to both image and density map
             sample = {'image': X, 'target': density}
-            X, density = self.transform(sample)
+            sample = self.transform(sample)
+            X, density = sample['image'], sample['target']
 
         return X, density, count
 
 if __name__ == '__main__':
-    data = Trancos(train=True, path='/home/dpernes/dataserver/DB/TRANCOS_v3/')
+    data = Trancos(train=True, path='/home/dpernes/dataserver/DB/TRANCOS_v3/',  transform=NP_T.RandomHorizontalFlip(0.5))
 
     for i, (X, density, count) in enumerate(data):
         print('Image {}: count={}, density_sum={:.3f}'.format(i, count, np.sum(density)))
@@ -96,7 +98,7 @@ if __name__ == '__main__':
         ax2.set_title('Density map')
         ax3 = fig.add_subplot(gs[1, :])
         H, W = X.shape[0:2]
-        Xred = 255*(NP_T.Scale((H//4, W//4))(X))
+        Xred = 255*(NP_T.Scale((H//4, W//4))({'image': X, 'target':np.zeros_like(X)}))['image']
         X_highlight = np.tile(np.mean(Xred, axis=2, keepdims=True), (1, 1, 3))
         mask = (density > 1e-5)
         X_highlight[:, :, 1] *= (1-density/np.max(density))
