@@ -41,9 +41,9 @@ def main():
     # define image transformations to be applied to each image in the dataset
     train_transf = T.Compose([
         NP_T.RandomHorizontalFlip(0.5),  # data augmentation: horizontal flipping (we could add more transformations)
-        T.ToTensor()  # convert np.array to tensor
+        NP_T.ToTensor()  # convert np.array to tensor
     ])
-    valid_transf = T.ToTensor()  # no data augmentation in validation
+    valid_transf = NP_T.ToTensor()  # no data augmentation in validation
 
     # instantiate the dataset
     train_data = Trancos(train=True, path=args['data_path'], transform=train_transf)
