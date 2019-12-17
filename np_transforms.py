@@ -1,4 +1,4 @@
-""" Borrowed from https://github.com/mlagunas/pytorch-nptransforms """
+""" Borrowed and adapted from https://github.com/mlagunas/pytorch-nptransforms """
 
 from __future__ import division
 
@@ -392,7 +392,7 @@ class ToTensor(object):
     Convert a ``numpy.ndarray`` to tensor.
     """
 
-    def __call__(self, pic):
+    def __call__(self, pic, target=None):
         """
         Args:
             converts pic (numpy array) to Tensor
@@ -400,15 +400,10 @@ class ToTensor(object):
         Returns:
             Tensor: Converted image.
         """
-
-        # check type of [pic]
-        if not _is_numpy_image(pic):
-            raise TypeError('img should be numpy array. Got {}'.format(type(pic)))
-
-        if len(pic.shape) == 1: return torch.FloatTensor(pic.copy())
-
-        return torch.FloatTensor(pic.transpose((2, 0, 1)).copy())
-
+        if target is None:
+            return transforms.functional.to_tensor(pic)
+        else:
+            return transforms.functional.to_tensor(pic), transforms.functional.to_tensor(target)
 
 class Scale(object):
     """
@@ -486,8 +481,6 @@ class rgb2xyz(object):
         :return: numpy array in XYZ color space
         """
         if isinstance(pic, np.ndarray):
-            # from skimage import color
-            # return color.rgb2lab(pic, self.illuminant, self.observer)
 
             arr = np.asanyarray(pic)
 
@@ -498,13 +491,6 @@ class rgb2xyz(object):
 
             return np.dot(arr, self.matrix.T.copy())
 
-            # out_img = np.zeros(pic.shape)
-            #
-            # for row in range(pic.shape[0]):
-            #     for col in range(pic.shape[1]):
-            #         out_img[row, col] = np.dot(self.matrix, pic[row, col])
-            #
-            # return out_img
         else:
             raise TypeError("Tensor [pic] is not numpy array")
 
@@ -526,14 +512,6 @@ class xyz2rgb(object):
                 raise ValueError(msg)
 
             return np.dot(arr, self.matrix.T.copy())
-
-            # out_img = np.zeros(pic.shape)
-            #
-            # for row in range(pic.shape[0]):
-            #     for col in range(pic.shape[1]):
-            #         out_img[row, col] = np.dot(self.matrix, pic[row, col])
-            #
-            # return out_img
         else:
             raise TypeError("Tensor [pic] is not numpy array")
 
@@ -544,7 +522,7 @@ class RandomHorizontalFlip(object):
     def __init__(self, prob=0.5):
         self.prob = prob
 
-    def __call__(self, pic):
+    def __call__(self, pic, target=None):
         """
         Args:
             img (numpy array): Image to be flipped.
@@ -555,14 +533,24 @@ class RandomHorizontalFlip(object):
         # check type of [pic]
         if not _is_numpy_image(pic):
             raise TypeError('img should be numpy array. Got {}'.format(type(pic)))
+        # check type of [target]
+        if (target is not None) and (not _is_numpy_image(target)):
+            raise TypeError('target should be numpy array. Got {}'.format(type(target)))
 
         # if image has only 2 channels make it three channel
         if len(pic.shape) != 3:
             pic = pic.reshape(pic.shape[0], pic.shape[1], -1)
+        if (target is not None) and (len(target.shape) != 3):
+            target = target.reshape(target.shape[0], target.shape[1], -1)
 
-        if random.random() < self.prob:
-            return pic[:, ::-1, :].copy()
-        return pic
+        if target is None:
+            if random.random() < self.prob:
+                return pic[:, ::-1, :].copy()
+            return pic
+        else:
+            if random.random() < self.prob:
+                return pic[:, ::-1, :].copy(), target[:, ::-1, :].copy()
+            return pic, target
 
 
 class RandomVerticalFlip(object):
@@ -571,7 +559,7 @@ class RandomVerticalFlip(object):
     def __init__(self, prob=0.5):
         self.prob = prob
 
-    def __call__(self, pic):
+    def __call__(self, pic, target=None):
         """
         Args:
             img (numpy array): Image to be flipped.
@@ -582,14 +570,24 @@ class RandomVerticalFlip(object):
         # check type of [pic]
         if not _is_numpy_image(pic):
             raise TypeError('img should be numpy array. Got {}'.format(type(pic)))
+        # check type of [target]
+        if (target is not None) and (not _is_numpy_image(target)):
+            raise TypeError('target should be numpy array. Got {}'.format(type(target)))
 
         # if image has only 2 channels make it three channel
         if len(pic.shape) != 3:
             pic = pic.reshape(pic.shape[0], pic.shape[1], -1)
+        if (target is not None) and (len(target.shape) != 3):
+            target = target.reshape(target.shape[0], target.shape[1], -1)
 
-        if random.random() < self.prob:
-            return pic[::-1, :, :].copy()
-        return pic
+        if target is None:
+            if random.random() < self.prob:
+                return pic[::-1, :, :].copy()
+            return pic
+        else:
+            if random.random() < self.prob:
+                return pic[::-1, :, :].copy(), target[::-1, :, :].copy()
+            return pic, target
 
 
 class Lambda(transforms.Lambda):

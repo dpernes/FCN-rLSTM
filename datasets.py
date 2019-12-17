@@ -75,8 +75,7 @@ class Trancos(Dataset):
         count = len(centers)
 
         if self.transform:
-            X = self.transform(X)
-            density = self.transform(density)
+            X, density = self.transform(X, target=density)
 
         return X, density, count
 
