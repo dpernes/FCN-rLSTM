@@ -64,7 +64,6 @@ class FCN_rLSTM(nn.Module):
                 ('Deconv2', nn.ConvTranspose2d(256, 64, (3, 3), stride=2, padding=1, output_padding=1)),
                 ('ReLU_D2', nn.ReLU()),
                 ('Conv6', nn.Conv2d(64, 1, (1, 1))),
-                ('ReLU6', nn.ReLU()),
             ])))
 
         if self.temporal:
@@ -72,21 +71,23 @@ class FCN_rLSTM(nn.Module):
             self.lstm_block = nn.LSTM(H*W, 100, num_layers=3)
             self.final_layer = nn.Linear(100, 1)
 
-    def forward(self, X):
+    def forward(self, X, mask=None):
         if self.temporal:
             # X has shape (T, N, C, H, W)
             T, N, C, H, W = X.shape
             X = X.reshape(T*N, C, H, W)
-        else:
-            # X has shape (N, C, H, W)
-            N, C, H, W = X.shape
+        # else X has shape (N, C, H, W)
 
+        X = X*mask if mask is not None else X
         h1 = self.conv_blocks[0](X)
         h2 = self.conv_blocks[1](h1)
         h3 = self.conv_blocks[2](h2)
         h4 = self.conv_blocks[3](h3)
         h = torch.cat((h1, h2, h3, h4), dim=1)  # hyper-atrous combination
         h = self.conv_blocks[4](h)
+        if mask is not None:
+            # ignore output values outside the active region
+            h *= mask
 
         if self.temporal:
             density = h.reshape(T, N, 1, H, W)  # predicted density map
@@ -95,7 +96,7 @@ class FCN_rLSTM(nn.Module):
             count_fcn = h.sum(dim=2)
 
             h, _ = self.lstm_block(h)
-            count_lstm = self.final_layer(h.reshape(T*N, 100)).reshape(T, N)
+            count_lstm = self.final_layer(h.reshape(T*N, -1)).reshape(T, N)
             count = count_fcn + count_lstm  # predicted vehicle count
         else:
             density = h  # predicted density map

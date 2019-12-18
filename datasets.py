@@ -13,10 +13,10 @@ from utils import density_map
 
 
 class Trancos(Dataset):
-    def __init__(self, train=True, path='./TRANCOS_v3', transform=None, sigma=1e3, size_red=2):
+    def __init__(self, train=True, path='./TRANCOS_v3', transform=None, gamma=1e3, size_red=8):
         self.path = path
         self.transform = transform
-        self.sigma = sigma
+        self.gamma = gamma
         self.size_red = size_red
 
         if train:  # train + validation
@@ -28,12 +28,12 @@ class Trancos(Dataset):
         return len(self.image_files)
 
     def __getitem__(self, i):
-        # get the image and the binary mask and apply the mask to the image
+        # get the image and the binary mask
         X = io.imread(os.path.join(self.path, 'images', self.image_files[i]))
         mask = scipy.io.loadmat(os.path.join(self.path, 'images', self.image_files[i].replace('.jpg', 'mask.mat')))['BW']
-        X *= mask[:, :, np.newaxis]
+        mask = mask[:, :, np.newaxis].astype('float32')
 
-        # get the coordinates of the centers of all vehicles in the (masked) image
+        # get the coordinates of the centers of all vehicles in the image
         centers = []
         with open(os.path.join(self.path, 'images', self.image_files[i].replace('.jpg', '.txt'))) as f:
             for line in f:
@@ -41,28 +41,27 @@ class Trancos(Dataset):
                 y = int(line.split()[1]) - 1
                 centers.append((x, y))
 
-        # reduce the size of the image by the given amount
+        # reduce the size of image and mask by the given amount
         H_orig, W_orig = X.shape[0], X.shape[1]
         H_new, W_new = int(X.shape[0]/self.size_red), int(X.shape[1]/self.size_red)
         if self.size_red > 1:
             X = SkT.resize(X, (H_new, W_new), preserve_range=True).astype('uint8')
+            mask = SkT.resize(mask, (H_new, W_new), preserve_range=True).astype('float32')
 
-        # compute the density map and get the number of vehicles in the (masked) image
+        # compute the density map and get the number of vehicles in the image
         density = density_map(
             (H_orig, W_orig),
             centers,
-            self.sigma*np.ones(len(centers)),
+            self.gamma*np.ones(len(centers)),
             out_shape=(H_new, W_new))
-        density = density[:, :, np.newaxis]
+        density = density[:, :, np.newaxis].astype('float32')
         count = len(centers)
 
         if self.transform:
-            # apply the transformation to both image and density map
-            sample = {'image': X, 'target': density}
-            sample = self.transform(sample)
-            X, density = sample['image'], sample['target']
+            # apply the transformation to the image, mask and density map
+            X, mask, density = self.transform([X, mask, density])
 
-        return X, density, count
+        return X, mask, density, count
 
 if __name__ == '__main__':
     data = Trancos(train=True, path='/ctm-hdd-pool01/DB/TRANCOS_v3', transform=NP_T.RandomHorizontalFlip(0.5))

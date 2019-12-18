@@ -1,5 +1,6 @@
 import argparse
 import random
+import time
 
 import numpy as np
 import torch
@@ -12,6 +13,7 @@ from datasets import Trancos
 from model import FCN_rLSTM
 from utils import show_images
 
+from torch import nn
 
 def main():
     parser = argparse.ArgumentParser(description='Train FCN_rLSTM in Trancos dataset.', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -19,9 +21,10 @@ def main():
     parser.add_argument('-d', '--data_path', default='/ctm-hdd-pool01/DB/TRANCOS_v3', metavar='', help='data directory path')
     parser.add_argument('--valid', default=0.2, type=float, metavar='', help='fraction of the training data for validation')
     parser.add_argument('--lr', default=1e-4, type=float, metavar='', help='learning rate')
-    parser.add_argument('--epochs', default=100, type=int, metavar='', help='number of training epochs')
-    parser.add_argument('--batch_size', default=1, type=int, metavar='', help='batch size')
-    parser.add_argument('--lambda', default=1e-2, type=float, metavar='', help='trade-off between density estimation and vehicle count losses (see eq. 7 in the paper)')
+    parser.add_argument('--epochs', default=500, type=int, metavar='', help='number of training epochs')
+    parser.add_argument('--batch_size', default=32, type=int, metavar='', help='batch size')
+    parser.add_argument('--lambda', default=1e-4, type=float, metavar='', help='trade-off between density estimation and vehicle count losses (see eq. 7 in the paper)')
+    parser.add_argument('--gamma', default=1e3, type=float, metavar='', help='parameter of the Gaussian kernel (inverse of variance)')
     parser.add_argument('--weight_decay', default=0., type=float, metavar='', help='weight decay regularization')
     parser.add_argument('--use_cuda', default=True, type=int, metavar='', help='use CUDA capable GPU')
     parser.add_argument('--use_visdom', default=False, type=int, metavar='', help='use Visdom to visualize plots')
@@ -46,8 +49,8 @@ def main():
     valid_transf = NP_T.ToTensor()  # no data augmentation in validation
 
     # instantiate the dataset
-    train_data = Trancos(train=True, path=args['data_path'], transform=train_transf)
-    valid_data = Trancos(train=True, path=args['data_path'], transform=valid_transf)
+    train_data = Trancos(train=True, path=args['data_path'], transform=train_transf, gamma=args['gamma'])
+    valid_data = Trancos(train=True, path=args['data_path'], transform=valid_transf, gamma=args['gamma'])
 
     # split the data into training and validation sets
     if args['valid'] > 0:
@@ -76,7 +79,7 @@ def main():
 
     # Visdom is a tool to visualize plots during training
     if args['use_visdom']:
-        loss_plt = plotter.VisdomLinePlotter(env_name=args['visdom_env'],
+        loss_plt = plotter.VisdomLossPlotter(env_name=args['visdom_env'],
                                              port=args['visdom_port'])
         img_plt = plotter.VisdomImgsPlotter(env_name=args['visdom_env'],
                                             port=args['visdom_port'])
@@ -89,18 +92,22 @@ def main():
         loss_hist = []
         density_loss_hist = []
         count_loss_hist = []
-        X, density, count = None, None, None
-        for i, (X, density, count) in enumerate(train_loader):
-            # copy the tensors to GPU (if available)
-            X, density, count = X.to(device), density.to(device), count.to(device)
+        count_err_hist = []
+        X, mask, density, count = None, None, None, None
+        t0 = time.time()
+        for i, (X, mask, density, count) in enumerate(train_loader):
+            # copy the tensors to GPU (if applicable)
+            X, mask, density, count = X.to(device), mask.to(device), density.to(device), count.to(device)
 
             # forward pass through the model
-            density_pred, count_pred = model(X)
+            density_pred, count_pred = model(X, mask=mask)
+
             # compute the loss
             N = X.shape[0]
             density_loss = torch.sum((density_pred - density)**2)/(2*N)
             count_loss = torch.sum((count_pred - count)**2)/(2*N)
             loss = density_loss + args['lambda']*count_loss
+
             # backward pass and optimization step
             optimizer.zero_grad()  # very important! (otherwise, gradients accumulate)
             loss.backward()
@@ -112,43 +119,55 @@ def main():
             loss_hist.append(loss.item())
             density_loss_hist.append(density_loss.item())
             count_loss_hist.append(count_loss.item())
+            with torch.no_grad():  # evaluation purposes, so no need to compute gradients
+                count_err = torch.sum(torch.abs(count_pred - count))/N
+            count_err_hist.append(count_err.item())
+        t1 = time.time()
+        print()
 
         # print the average training losses
         train_loss = sum(loss_hist)/len(loss_hist)
         train_density_loss = sum(density_loss_hist)/len(density_loss_hist)
         train_count_loss = sum(count_loss_hist)/len(count_loss_hist)
-        print()
-        print('Train loss: {:.3f}'.format(train_loss))
-        print('Train density loss: {:.3f}'.format(train_density_loss))
-        print('Train count loss: {:.3f}'.format(train_count_loss))
+        train_count_err = sum(count_err_hist)/len(count_err_hist)
+        print('Training statistics:')
+        print('global loss: {:.3f} | density loss: {:.3f} | count loss: {:.3f} | count error: {:.3f}'
+              .format(train_loss, train_density_loss, train_count_loss, train_count_err))
+        print('training epoch took {:.0f} seconds'.format(t1-t0))
 
         if args['use_visdom']:
             # plot the losses
-            loss_plt.plot('global loss', 'train', 'global loss', epoch, train_loss)
-            loss_plt.plot('density loss', 'train', 'density loss', epoch, train_density_loss)
-            loss_plt.plot('count loss', 'train', 'count loss', epoch, train_count_loss)
+            loss_plt.plot('global loss', 'train', 'MSE', epoch, train_loss)
+            loss_plt.plot('density loss', 'train', 'MSE', epoch, train_density_loss)
+            loss_plt.plot('count loss', 'train', 'MSE', epoch, train_count_loss)
+            loss_plt.plot('count error', 'train', 'MAE', epoch, train_count_err)
 
             # show a few training examples (images + density maps)
+            X *= mask  # show the active region only
             X, density, count = X.cpu().numpy(), density.cpu().numpy(), count.cpu().numpy()
             density_pred, count_pred = density_pred.detach().cpu().numpy(), count_pred.detach().cpu().numpy()
-            show_images(img_plt, 'training gt', X, density, count)
-            show_images(img_plt, 'training pred', X, density_pred, count_pred)
+            H, W = X.shape[-2:]
+            show_images(img_plt, 'training gt', X, density, count, shape=(2*H, 2*W))
+            show_images(img_plt, 'training pred', X, density_pred, count_pred, shape=(2*H, 2*W))
 
         if valid_loader is None:
+            print()
             continue
 
         # validation phase
         loss_hist = []
         density_loss_hist = []
         count_loss_hist = []
-        X, density, count = None, None, None
-        for i, (X, density, count) in enumerate(valid_loader):
+        count_err_hist = []
+        X, mask, density, count = None, None, None, None
+        t0 = time.time()
+        for i, (X, mask, density, count) in enumerate(valid_loader):
             # copy the tensors to GPU (if available)
-            X, density, count = X.to(device), density.to(device), count.to(device)
+            X, mask, density, count = X.to(device), mask.to(device), density.to(device), count.to(device)
 
             # forward pass through the model
             with torch.no_grad():  # no need to compute gradients in validation (faster and uses less memory)
-                density_pred, count_pred = model(X)
+                density_pred, count_pred = model(X, mask=mask)
 
             # compute the loss
             N = X.shape[0]
@@ -159,28 +178,35 @@ def main():
             loss_hist.append(loss.item())
             density_loss_hist.append(density_loss.item())
             count_loss_hist.append(count_loss.item())
+            count_err = torch.sum(torch.abs(count_pred - count))/N
+            count_err_hist.append(count_err.item())
+        t1 = time.time()
 
         # print the average validation losses
         valid_loss = sum(loss_hist)/len(loss_hist)
         valid_density_loss = sum(density_loss_hist)/len(density_loss_hist)
         valid_count_loss = sum(count_loss_hist)/len(count_loss_hist)
-        print()
-        print('Valid loss: {:.3f}'.format(valid_loss))
-        print('Valid density loss: {:.3f}'.format(valid_density_loss))
-        print('Valid count loss: {:.3f}'.format(valid_count_loss))
+        valid_count_err = sum(count_err_hist)/len(count_err_hist)
+        print('Validation statistics:')
+        print('global loss: {:.3f} | density loss: {:.3f} | count loss: {:.3f} | count error: {:.3f}'
+              .format(valid_loss, valid_density_loss, valid_count_loss, valid_count_err))
+        print('validation epoch took {:.0f} seconds'.format(t1-t0))
         print()
 
         if args['use_visdom']:
             # plot the losses
-            loss_plt.plot('global loss', 'valid', 'global loss', epoch, valid_loss)
-            loss_plt.plot('density loss', 'valid', 'density loss', epoch, valid_density_loss)
-            loss_plt.plot('count loss', 'valid', 'count loss', epoch, valid_count_loss)
+            loss_plt.plot('global loss', 'valid', 'MSE', epoch, valid_loss)
+            loss_plt.plot('density loss', 'valid', 'MSE', epoch, valid_density_loss)
+            loss_plt.plot('count loss', 'valid', 'MSE', epoch, valid_count_loss)
+            loss_plt.plot('count error', 'valid', 'MAE', epoch, valid_count_err)
 
             # show a few training examples (images + density maps)
+            X *= mask  # show the active region only
             X, density, count = X.cpu().numpy(), density.cpu().numpy(), count.cpu().numpy()
             density_pred, count_pred = density_pred.detach().cpu().numpy(), count_pred.detach().cpu().numpy()
-            show_images(img_plt, 'valid gt', X, density, count)
-            show_images(img_plt, 'valid pred', X, density_pred, count_pred)
+            H, W = X.shape[-2:]
+            show_images(img_plt, 'valid gt', X, density, count, shape=(2*H, 2*W))
+            show_images(img_plt, 'valid pred', X, density_pred, count_pred, shape=(2*H, 2*W))
 
     torch.save(model.state_dict(), args['model_path'])
 

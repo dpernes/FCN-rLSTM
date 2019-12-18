@@ -21,14 +21,11 @@ class ToTensor(object):
     def __call__(self, sample):
         """
         Args:
-            sample: dict containing np.arrays image and target.
+            sample: list containing images as np.arrays.
         Returns:
-            sample: dict containing tensors image and target..
+            sample: list containing images as tensors.
         """
-        image, target = sample['image'], sample['target']
-
-        return {'image': TF.to_tensor(image), 'target': TF.to_tensor(target)}
-
+        return [TF.to_tensor(image) for image in sample]
 
 class Scale(object):
     """Rescale the image in a sample to a given size.
@@ -46,28 +43,11 @@ class Scale(object):
     def __call__(self, sample):
         """
         Args:
-            sample: dict containing np.arrays image and target.
+            sample: list containing images as np.arrays
         Returns:
-            sample: dict containing scaled np.arrays image and target.
+            sample: list containing scaled images as np.arrays
         """
-        image, target = sample['image'], sample['target']
-
-        h, w = image.shape[:2]
-        if isinstance(self.output_size, int):
-            if h > w:
-                new_h, new_w = self.output_size * h / w, self.output_size
-            else:
-                new_h, new_w = self.output_size, self.output_size * w / h
-        else:
-            new_h, new_w = self.output_size
-
-        new_h, new_w = int(new_h), int(new_w)
-
-        image = SkT.resize(image, (new_h, new_w))
-        target = SkT.resize(target, (new_h, new_w))
-
-        return {'image': image, 'target': target}
-
+        return [SkT.resize(image, self.output_size) for image in sample]
 
 class RandomHorizontalFlip(object):
     """Horizontally flip the given numpy array randomly with a probability of 0.5."""
@@ -78,28 +58,17 @@ class RandomHorizontalFlip(object):
     def __call__(self, sample):
         """
         Args:
-            sample: dict containing np.arrays image and target.
+            sample: list containing images as np.arrays
         Returns:
-            sample: dict containing flipped np.arrays image and target.
+            sample: list containing flipped images as np.arrays
         """
-        image, target = sample['image'], sample['target']
-
-        # check type of [pic]
-        if not _is_numpy_image(image):
-            raise TypeError('image should be numpy array. Got {}'.format(type(image)))
-        # check type of [target]
-        if not _is_numpy_image(target):
-            raise TypeError('target should be numpy array. Got {}'.format(type(target)))
-
-        # if image has only 2 channels make it three channel
-        if len(image.shape) != 3:
-            image = image.reshape(image.shape[0], image.shape[1], -1)
-        if len(target.shape) != 3:
-            target = target.reshape(target.shape[0], target.shape[1], -1)
-
         if random.random() < self.prob:
-            return {'image': image[:, ::-1, :].copy(), 'target': target[:, ::-1, :].copy()}
-        return {'image': image, 'target': target}
+            output = []
+            for image in sample:
+                output.append(image[:, ::-1, :].copy())
+            return output
+        else:
+            return sample
 
 
 class RandomVerticalFlip(object):
@@ -111,25 +80,14 @@ class RandomVerticalFlip(object):
     def __call__(self, sample):
         """
         Args:
-            sample: dict containing np.arrays image and target.
+            sample: list containing images as np.arrays
         Returns:
-            sample: dict containing flipped np.arrays image and target.
+            sample: list containing flipped images as np.arrays
         """
-        image, target = sample['image'], sample['target']
-
-        # check type of [pic]
-        if not _is_numpy_image(image):
-            raise TypeError('image should be numpy array. Got {}'.format(type(image)))
-        # check type of [target]
-        if not _is_numpy_image(target):
-            raise TypeError('target should be numpy array. Got {}'.format(type(target)))
-
-        # if image has only 2 channels make it three channel
-        if len(image.shape) != 3:
-            image = image.reshape(image.shape[0], image.shape[1], -1)
-        if len(target.shape) != 3:
-            target = target.reshape(target.shape[0], target.shape[1], -1)
-
         if random.random() < self.prob:
-            return {'image': image[::-1, :, :].copy(), 'target': target[::-1, :, :].copy()}
-        return {'image': image, 'target': target}
+            output = []
+            for image in sample:
+                output.append(image[::-1, :, :].copy())
+            return output
+        else:
+            return sample
