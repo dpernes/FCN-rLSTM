@@ -78,7 +78,8 @@ class FCN_rLSTM(nn.Module):
             X = X.reshape(T*N, C, H, W)
         # else X has shape (N, C, H, W)
 
-        X = X*mask if mask is not None else X
+        if mask is not None:
+            X = X * mask  # zero input values outside the active region
         h1 = self.conv_blocks[0](X)
         h2 = self.conv_blocks[1](h1)
         h3 = self.conv_blocks[2](h2)
@@ -86,8 +87,7 @@ class FCN_rLSTM(nn.Module):
         h = torch.cat((h1, h2, h3, h4), dim=1)  # hyper-atrous combination
         h = self.conv_blocks[4](h)
         if mask is not None:
-            # ignore output values outside the active region
-            h *= mask
+            h = h * mask  # zero output values outside the active region
 
         if self.temporal:
             density = h.reshape(T, N, 1, H, W)  # predicted density map

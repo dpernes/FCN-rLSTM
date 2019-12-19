@@ -20,7 +20,7 @@ def main():
     parser.add_argument('-m', '--model_path', default='./fcn_rlstm.pth', metavar='', help='model file (output of train)')
     parser.add_argument('-d', '--data_path', default='/ctm-hdd-pool01/DB/TRANCOS_v3', metavar='', help='data directory path')
     parser.add_argument('--valid', default=0.2, type=float, metavar='', help='fraction of the training data for validation')
-    parser.add_argument('--lr', default=1e-4, type=float, metavar='', help='learning rate')
+    parser.add_argument('--lr', default=1e-3, type=float, metavar='', help='learning rate')
     parser.add_argument('--epochs', default=500, type=int, metavar='', help='number of training epochs')
     parser.add_argument('--batch_size', default=32, type=int, metavar='', help='batch size')
     parser.add_argument('--lambda', default=1e-4, type=float, metavar='', help='trade-off between density estimation and vehicle count losses (see eq. 7 in the paper)')
@@ -89,6 +89,7 @@ def main():
         print('Epoch {}/{}'.format(epoch, args['epochs']-1))
 
         # training phase
+        model.train()  # set model to training mode (affects batchnorm and dropout, if present)
         loss_hist = []
         density_loss_hist = []
         count_loss_hist = []
@@ -100,7 +101,7 @@ def main():
             X, mask, density, count = X.to(device), mask.to(device), density.to(device), count.to(device)
 
             # forward pass through the model
-            density_pred, count_pred = model(X, mask=mask)
+            density_pred, count_pred = model(X, mask=None)
 
             # compute the loss
             N = X.shape[0]
@@ -113,13 +114,15 @@ def main():
             loss.backward()
             optimizer.step()
 
-            print('{}/{} mini-batch loss: {:.3f} | density_loss: {:.3f} | count loss {:.3f}'
+            print('{}/{} mini-batch loss: {:.3f} | density_loss: {:.3f} | count loss: {:.3f}'
                   .format(i, len(train_loader)-1, loss.item(), density_loss.item(), count_loss.item()),
                   flush=True, end='\r')
+
+            # save the loss values
             loss_hist.append(loss.item())
             density_loss_hist.append(density_loss.item())
             count_loss_hist.append(count_loss.item())
-            with torch.no_grad():  # evaluation purposes, so no need to compute gradients
+            with torch.no_grad():  # evaluation metric, so no need to compute gradients
                 count_err = torch.sum(torch.abs(count_pred - count))/N
             count_err_hist.append(count_err.item())
         t1 = time.time()
@@ -133,7 +136,7 @@ def main():
         print('Training statistics:')
         print('global loss: {:.3f} | density loss: {:.3f} | count loss: {:.3f} | count error: {:.3f}'
               .format(train_loss, train_density_loss, train_count_loss, train_count_err))
-        print('training epoch took {:.0f} seconds'.format(t1-t0))
+        print('time: {:.0f} seconds'.format(t1-t0))
 
         if args['use_visdom']:
             # plot the losses
@@ -147,14 +150,16 @@ def main():
             X, density, count = X.cpu().numpy(), density.cpu().numpy(), count.cpu().numpy()
             density_pred, count_pred = density_pred.detach().cpu().numpy(), count_pred.detach().cpu().numpy()
             H, W = X.shape[-2:]
-            show_images(img_plt, 'training gt', X, density, count, shape=(2*H, 2*W))
-            show_images(img_plt, 'training pred', X, density_pred, count_pred, shape=(2*H, 2*W))
+            n2show = min(X.shape[0], 8)  # show 8 images at most
+            show_images(img_plt, 'train gt', X[0:n2show], density[0:n2show], count[0:n2show], shape=(2*H, 2*W))
+            show_images(img_plt, 'train pred', X[0:n2show], density_pred[0:n2show], count_pred[0:n2show], shape=(2*H, 2*W))
 
         if valid_loader is None:
             print()
             continue
 
         # validation phase
+        model.eval()  # set model to evaluation mode (affects batchnorm and dropout, if present)
         loss_hist = []
         density_loss_hist = []
         count_loss_hist = []
@@ -175,6 +180,7 @@ def main():
             count_loss = torch.sum((count_pred - count)**2)/(2*N)
             loss = density_loss + args['lambda']*count_loss
 
+            # save the loss values
             loss_hist.append(loss.item())
             density_loss_hist.append(density_loss.item())
             count_loss_hist.append(count_loss.item())
@@ -190,7 +196,7 @@ def main():
         print('Validation statistics:')
         print('global loss: {:.3f} | density loss: {:.3f} | count loss: {:.3f} | count error: {:.3f}'
               .format(valid_loss, valid_density_loss, valid_count_loss, valid_count_err))
-        print('validation epoch took {:.0f} seconds'.format(t1-t0))
+        print('time: {:.0f} seconds'.format(t1-t0))
         print()
 
         if args['use_visdom']:
@@ -205,8 +211,9 @@ def main():
             X, density, count = X.cpu().numpy(), density.cpu().numpy(), count.cpu().numpy()
             density_pred, count_pred = density_pred.detach().cpu().numpy(), count_pred.detach().cpu().numpy()
             H, W = X.shape[-2:]
-            show_images(img_plt, 'valid gt', X, density, count, shape=(2*H, 2*W))
-            show_images(img_plt, 'valid pred', X, density_pred, count_pred, shape=(2*H, 2*W))
+            n2show = min(X.shape[0], 8)  # show 8 images at most
+            show_images(img_plt, 'valid gt', X[0:n2show], density[0:n2show], count[0:n2show], shape=(2*H, 2*W))
+            show_images(img_plt, 'valid pred', X[0:n2show], density_pred[0:n2show], count_pred[0:n2show], shape=(2*H, 2*W))
 
     torch.save(model.state_dict(), args['model_path'])
 
