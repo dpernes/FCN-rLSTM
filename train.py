@@ -5,7 +5,6 @@ import time
 import numpy as np
 import torch
 import torchvision.transforms as T
-from torch import nn
 from torch.utils.data import DataLoader, Subset
 
 import np_transforms as NP_T

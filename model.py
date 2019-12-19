@@ -1,11 +1,8 @@
+from collections import OrderedDict
+
 import torch
 from torch import nn
-from collections import OrderedDict
-import math
 
-from skimage import io
-import matplotlib.pyplot as plt
-import torchvision.transforms.functional as TF
 
 class FCN_rLSTM(nn.Module):
     def __init__(self, temporal=False, image_dim=None):
