@@ -25,6 +25,7 @@ def main():
     parser.add_argument('--visdom_env', default='FCN-rLSTM_test', type=str, metavar='', help='Visdom environment name')
     parser.add_argument('--visdom_port', default=8888, type=int, metavar='', help='Visdom port')
     parser.add_argument('--n2show', default=16, type=int, metavar='', help='number of examples to show in Visdom')
+    parser.add_argument('--vis_shape', nargs=2, default=[120, 160], type=int, metavar='', help='shape of the images shown in Visdom')
     parser.add_argument('--seed', default=-1, type=int, metavar='', help='random seed')
     args = vars(parser.parse_args())
 
@@ -111,9 +112,8 @@ def main():
         for key in samples:
             samples[key] = np.concatenate(samples[key], axis=0)
 
-        H, W = samples['X'].shape[-2:]
-        show_images(img_plt, 'test gt', samples['X'], samples['density'], samples['count'], shape=(2*H, 2*W))
-        show_images(img_plt, 'test pred', samples['X'], samples['density_pred'], samples['count_pred'], shape=(2*H, 2*W))
+        show_images(img_plt, 'test gt', samples['X'], samples['density'], samples['count'], shape=args['vis_shape'])
+        show_images(img_plt, 'test pred', samples['X'], samples['density_pred'], samples['count_pred'], args['vis_shape'])
 
 if __name__ == '__main__':
     main()

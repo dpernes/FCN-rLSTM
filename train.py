@@ -31,6 +31,7 @@ def main():
     parser.add_argument('--visdom_env', default='FCN-rLSTM_train', type=str, metavar='', help='Visdom environment name')
     parser.add_argument('--visdom_port', default=8888, type=int, metavar='', help='Visdom port')
     parser.add_argument('--n2show', default=8, type=int, metavar='', help='number of examples to show in Visdom in each epoch')
+    parser.add_argument('--vis_shape', nargs=2, default=[120, 160], type=int, metavar='', help='shape of the images shown in Visdom')
     parser.add_argument('--seed', default=42, type=int, metavar='', help='random seed')
     args = vars(parser.parse_args())
 
@@ -158,8 +159,8 @@ def main():
             density_pred, count_pred = density_pred.detach().cpu().numpy(), count_pred.detach().cpu().numpy()
             H, W = X.shape[-2:]
             n2show = min(args['n2show'], X.shape[0])  # show args['n2show'] images at most
-            show_images(img_plt, 'train gt', X[0:n2show], density[0:n2show], count[0:n2show], shape=(2*H, 2*W))
-            show_images(img_plt, 'train pred', X[0:n2show], density_pred[0:n2show], count_pred[0:n2show], shape=(2*H, 2*W))
+            show_images(img_plt, 'train gt', X[0:n2show], density[0:n2show], count[0:n2show], shape=args['vis_shape'])
+            show_images(img_plt, 'train pred', X[0:n2show], density_pred[0:n2show], count_pred[0:n2show], shape=args['vis_shape'])
 
         if valid_loader is None:
             print()
