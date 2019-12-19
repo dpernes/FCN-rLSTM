@@ -13,11 +13,11 @@ from utils import density_map
 
 
 class Trancos(Dataset):
-    def __init__(self, train=True, path='./TRANCOS_v3', transform=None, gamma=1e3, size_red=8):
+    def __init__(self, train=True, path='./TRANCOS_v3', size_red=8, transform=None, gamma=1e3):
         self.path = path
+        self.size_red = size_red
         self.transform = transform
         self.gamma = gamma
-        self.size_red = size_red
 
         if train:  # train + validation
             self.image_files = [img[:-1] for img in open(os.path.join(self.path, 'image_sets', 'trainval.txt'))]
