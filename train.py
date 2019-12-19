@@ -101,7 +101,7 @@ def main():
             X, mask, density, count = X.to(device), mask.to(device), density.to(device), count.to(device)
 
             # forward pass through the model
-            density_pred, count_pred = model(X, mask=None)
+            density_pred, count_pred = model(X, mask=mask)
 
             # compute the loss
             N = X.shape[0]
