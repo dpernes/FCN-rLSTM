@@ -218,10 +218,9 @@ def main():
             X *= mask  # show the active region only
             X, density, count = X.cpu().numpy(), density.cpu().numpy(), count.cpu().numpy()
             density_pred, count_pred = density_pred.cpu().numpy(), count_pred.cpu().numpy()
-            H, W = X.shape[-2:]
             n2show = min(args['n2show'], X.shape[0])  # show args['n2show'] images at most
-            show_images(img_plt, 'valid gt', X[0:n2show], density[0:n2show], count[0:n2show], shape=(2*H, 2*W))
-            show_images(img_plt, 'valid pred', X[0:n2show], density_pred[0:n2show], count_pred[0:n2show], shape=(2*H, 2*W))
+            show_images(img_plt, 'valid gt', X[0:n2show], density[0:n2show], count[0:n2show], shape=args['vis_shape'])
+            show_images(img_plt, 'valid pred', X[0:n2show], density_pred[0:n2show], count_pred[0:n2show], shape=args['vis_shape'])
 
     torch.save(model.state_dict(), args['model_path'])
 

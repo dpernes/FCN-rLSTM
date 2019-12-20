@@ -113,7 +113,7 @@ def main():
             samples[key] = np.concatenate(samples[key], axis=0)
 
         show_images(img_plt, 'test gt', samples['X'], samples['density'], samples['count'], shape=args['vis_shape'])
-        show_images(img_plt, 'test pred', samples['X'], samples['density_pred'], samples['count_pred'], args['vis_shape'])
+        show_images(img_plt, 'test pred', samples['X'], samples['density_pred'], samples['count_pred'], shape=args['vis_shape'])
 
 if __name__ == '__main__':
     main()
