@@ -62,7 +62,7 @@ class Trancos(Dataset):
             out_shape=(H_new, W_new))
         density = density[:, :, np.newaxis].astype('float32')
 
-        # get the number of vehicles in the image and the camera id
+        # get the number of vehicles in the image and the camera ID
         count = len(centers)
         cam_id = self.cam_ids[self.image_files[i]]
 
@@ -75,7 +75,7 @@ class Trancos(Dataset):
 if __name__ == '__main__':
     data = Trancos(train=True, path='/ctm-hdd-pool01/DB/TRANCOS_v3', transform=NP_T.RandomHorizontalFlip(0.5))
 
-    for i, (X, density, count, cid) in enumerate(data):
+    for i, (X, mask, density, count, cid) in enumerate(data):
         print('Image {}: cid={}, count={}, density_sum={:.3f}'.format(i, cid, count, np.sum(density)))
         gs = gridspec.GridSpec(2, 2)
         fig = plt.figure()
