@@ -71,7 +71,7 @@ def main():
     count_loss = 0.
     count_err = 0.
     t0 = time.time()
-    for i, (X, mask, density, count) in enumerate(test_loader):
+    for i, (X, mask, density, count, _) in enumerate(test_loader):
         # copy the tensors to GPU (if applicable)
         X, mask, density, count = X.to(device), mask.to(device), density.to(device), count.to(device)
 

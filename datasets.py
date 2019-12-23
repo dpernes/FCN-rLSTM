@@ -24,6 +24,12 @@ class Trancos(Dataset):
         else:  # test
             self.image_files = [img[:-1] for img in open(os.path.join(self.path, 'image_sets', 'test.txt'))]
 
+        self.cam_ids = {}
+        with open(os.path.join(self.path, 'images', 'cam_annotations.txt')) as f:
+            for line in f:
+                img_f, cid = line.split()
+                self.cam_ids[img_f] = int(cid)
+
     def __len__(self):
         return len(self.image_files)
 
@@ -48,26 +54,29 @@ class Trancos(Dataset):
             X = SkT.resize(X, (H_new, W_new), preserve_range=True).astype('uint8')
             mask = SkT.resize(mask, (H_new, W_new), preserve_range=True).astype('float32')
 
-        # compute the density map and get the number of vehicles in the image
+        # compute the density map
         density = density_map(
             (H_orig, W_orig),
             centers,
             self.gamma*np.ones(len(centers)),
             out_shape=(H_new, W_new))
         density = density[:, :, np.newaxis].astype('float32')
+
+        # get the number of vehicles in the image and the camera id
         count = len(centers)
+        cam_id = self.cam_ids[self.image_files[i]]
 
         if self.transform:
             # apply the transformation to the image, mask and density map
             X, mask, density = self.transform([X, mask, density])
 
-        return X, mask, density, count
+        return X, mask, density, count, cam_id
 
 if __name__ == '__main__':
     data = Trancos(train=True, path='/ctm-hdd-pool01/DB/TRANCOS_v3', transform=NP_T.RandomHorizontalFlip(0.5))
 
-    for i, (X, density, count) in enumerate(data):
-        print('Image {}: count={}, density_sum={:.3f}'.format(i, count, np.sum(density)))
+    for i, (X, density, count, cid) in enumerate(data):
+        print('Image {}: cid={}, count={}, density_sum={:.3f}'.format(i, cid, count, np.sum(density)))
         gs = gridspec.GridSpec(2, 2)
         fig = plt.figure()
         ax1 = fig.add_subplot(gs[0, 0])
