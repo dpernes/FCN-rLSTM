@@ -66,13 +66,13 @@ def main():
         nsaved = 0
 
     # do inference and print statistics
-    model.eval()
+    model.eval()  # set model to evaluation mode
     density_loss = 0.
     count_loss = 0.
     count_err = 0.
     t0 = time.time()
     for i, (X, mask, density, count, _) in enumerate(test_loader):
-        # copy the tensors to GPU (if applicable)
+        # copy the tensors to GPU (if available)
         X, mask, density, count = X.to(device), mask.to(device), density.to(device), count.to(device)
 
         # forward pass through the model

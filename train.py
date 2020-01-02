@@ -157,7 +157,6 @@ def main():
             X *= mask  # show the active region only
             X, density, count = X.cpu().numpy(), density.cpu().numpy(), count.cpu().numpy()
             density_pred, count_pred = density_pred.detach().cpu().numpy(), count_pred.detach().cpu().numpy()
-            H, W = X.shape[-2:]
             n2show = min(args['n2show'], X.shape[0])  # show args['n2show'] images at most
             show_images(img_plt, 'train gt', X[0:n2show], density[0:n2show], count[0:n2show], shape=args['vis_shape'])
             show_images(img_plt, 'train pred', X[0:n2show], density_pred[0:n2show], count_pred[0:n2show], shape=args['vis_shape'])
