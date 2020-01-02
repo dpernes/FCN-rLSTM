@@ -5,11 +5,21 @@ from torch import nn
 
 
 class FCN_rLSTM(nn.Module):
+    r"""
+    Implementation of the model FCN-rLSTM, as described in the paper:
+    Zhang et al., "FCN-rLSTM: Deep spatio-temporal neural networks for vehicle counting in city cameras", ICCV 2017.
+    """
+
     def __init__(self, temporal=False, image_dim=None):
+        r"""
+        Args:
+            temporal - whether to have or not the LSTM block in the network (default: `False`)
+            image_dim - tuple (height, width) with image dimensions, only needed if `temporal` is True (default: `None`)
+        """
         super(FCN_rLSTM, self).__init__()
 
         if temporal and (image_dim is None):
-            raise Exception('If temporal == True, image_dim must be provided')
+            raise Exception('If `temporal` is `True`, `image_dim` must be provided')
 
         self.temporal = temporal
 
@@ -69,6 +79,16 @@ class FCN_rLSTM(nn.Module):
             self.final_layer = nn.Linear(100, 1)
 
     def forward(self, X, mask=None):
+        r"""
+        Args:
+            X - tensor with shape (seq_len, batch_size, channels, height, width) if `temporal` is True or (batch_size, channels, height, width) otherwise
+            mask - binary tensor with same shape as X to mask values outside the active region (optional, default: `None`)
+
+        Outputs:
+            density - predicted density map, tensor with shape (seq_len, batch_size, 1, height, width) if `temporal` is True or (batch_size, 1, height, width) otherwise
+            count - predicted number of vehicles in each image, tensor with shape (seq_len, batch_size) if `temporal` is True or (batch_size) otherwise
+        """
+
         if self.temporal:
             # X has shape (T, N, C, H, W)
             T, N, C, H, W = X.shape

@@ -104,7 +104,7 @@ def main():
         count_err_hist = []
         X, mask, density, count = None, None, None, None
         t0 = time.time()
-        for i, (X, mask, density, count, _) in enumerate(train_loader):
+        for i, (X, mask, density, count) in enumerate(train_loader):
             # copy the tensors to GPU (if applicable)
             X, mask, density, count = X.to(device), mask.to(device), density.to(device), count.to(device)
 
@@ -173,7 +173,7 @@ def main():
         count_err_hist = []
         X, mask, density, count = None, None, None, None
         t0 = time.time()
-        for i, (X, mask, density, count, _) in enumerate(valid_loader):
+        for i, (X, mask, density, count) in enumerate(valid_loader):
             # copy the tensors to GPU (if available)
             X, mask, density, count = X.to(device), mask.to(device), density.to(device), count.to(device)
 
