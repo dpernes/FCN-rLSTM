@@ -2,6 +2,7 @@ from collections import OrderedDict
 
 import torch
 from torch import nn
+from torch.nn.utils import rnn
 
 
 class FCN_rLSTM(nn.Module):
@@ -13,8 +14,8 @@ class FCN_rLSTM(nn.Module):
     def __init__(self, temporal=False, image_dim=None):
         r"""
         Args:
-            temporal - whether to have or not the LSTM block in the network (default: `False`)
-            image_dim - tuple (height, width) with image dimensions, only needed if `temporal` is True (default: `None`)
+            temporal: whether to have or not the LSTM block in the network (default: `False`)
+            image_dim: tuple (height, width) with image dimensions, only needed if `temporal` is True (default: `None`)
         """
         super(FCN_rLSTM, self).__init__()
 
@@ -75,24 +76,42 @@ class FCN_rLSTM(nn.Module):
 
         if self.temporal:
             H, W = image_dim
-            self.lstm_block = nn.LSTM(H*W, 100, num_layers=3)
+            self.lstm_block = nn.LSTM(H*W, 100, num_layers=3, batch_first=False)
             self.final_layer = nn.Linear(100, 1)
 
-    def forward(self, X, mask=None):
+    def init_hidden(self, batch_size):
+        """
+        Initializes the hidden state of the LSTM with Gaussian noise
+
+        Args:
+            batch_size: the size of the current batch
+        """
+        h0 = torch.randn(3, batch_size, 100)  # initial state has shape (num_layers, batch_size, hidden_dim)
+        h0 = h0.to(next(self.parameters()).device)
+        c0 = torch.randn(3, batch_size, 100)  # initial state has shape (num_layers, batch_size, hidden_dim)
+        c0 = c0.to(next(self.parameters()).device)
+        return h0, c0
+
+    def forward(self, X, mask=None, lengths=None):
         r"""
         Args:
-            X - tensor with shape (seq_len, batch_size, channels, height, width) if `temporal` is True or (batch_size, channels, height, width) otherwise
-            mask - binary tensor with same shape as X to mask values outside the active region (optional, default: `None`)
+            X: tensor with shape (seq_len, batch_size, channels, height, width) if `temporal` is `True` or (batch_size, channels, height, width) otherwise
+            mask: binary tensor with same shape as X to mask values outside the active region;
+                if `None`, no masking is applied (default: `None`)
+            lengths: tensor with shape (batch_size,) containing the lengths of each sequence, which must be in decreasing order;
+                if `None`, all sequences are assumed to have maximum length (default: `None`)
 
-        Outputs:
-            density - predicted density map, tensor with shape (seq_len, batch_size, 1, height, width) if `temporal` is True or (batch_size, 1, height, width) otherwise
-            count - predicted number of vehicles in each image, tensor with shape (seq_len, batch_size) if `temporal` is True or (batch_size) otherwise
+        Returns:
+            density: predicted density map, tensor with shape (seq_len, batch_size, 1, height, width) if `temporal` is `True` or (batch_size, 1, height, width) otherwise
+            count: predicted number of vehicles in each image, tensor with shape (seq_len, batch_size) if `temporal` is `True` or (batch_size) otherwise
         """
 
         if self.temporal:
             # X has shape (T, N, C, H, W)
             T, N, C, H, W = X.shape
             X = X.reshape(T*N, C, H, W)
+            if mask is not None:
+                mask = mask.reshape(T*N, 1, H, W)
         # else X has shape (N, C, H, W)
 
         if mask is not None:
@@ -112,7 +131,17 @@ class FCN_rLSTM(nn.Module):
             h = h.reshape(T, N, -1)
             count_fcn = h.sum(dim=2)
 
-            h, _ = self.lstm_block(h)
+            if lengths is not None:
+                # pack padded sequence so that padded items in the sequence are not shown to the LSTM
+                h = rnn.pack_padded_sequence(h, lengths, batch_first=False, enforce_sorted=True)
+
+            h0 = self.init_hidden(N)
+            h, _ = self.lstm_block(h, h0)
+
+            if lengths is not None:
+                # undo the packing operation
+                h, _ = torch.nn.utils.rnn.pad_packed_sequence(h, batch_first=False, total_length=T)
+
             count_lstm = self.final_layer(h.reshape(T*N, -1)).reshape(T, N)
             count = count_fcn + count_lstm  # predicted vehicle count
         else:

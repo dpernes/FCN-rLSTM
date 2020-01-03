@@ -1,5 +1,7 @@
 import numpy as np
 import skimage.transform as SkT
+import torch
+
 
 def gauss2d(shape, center, gamma, out_shape=None):
     H, W = shape
@@ -42,3 +44,12 @@ def show_images(plt, var_name, X, density, count, shape=None):
     density = np.tile(density[:, np.newaxis, :, :], (1, 3, 1, 1))
     plt.plot(var_name + ' highlighted', Xh, labels)
     plt.plot(var_name + ' density maps', density, labels)
+
+def sort_seqs_by_len(seqs, seq_len):
+    sort_idx = torch.argsort(seq_len, dim=0, descending=True)
+    seq_len_sort = seq_len[sort_idx]
+    seqs_sort = []
+    for seq in seqs:
+        seqs_sort.append(seq[sort_idx])
+
+    return seqs_sort, seq_len_sort

@@ -7,6 +7,7 @@ import numpy as np
 import scipy.io
 import skimage.transform as SkT
 import torch
+import torchvision.transforms as T
 from skimage import io
 from torch.utils.data import Dataset
 
@@ -23,12 +24,12 @@ class Trancos(Dataset):
     def __init__(self, train=True, path='./TRANCOS_v3', size_red=8, transform=None, gamma=1e3, get_camids=False):
         r"""
         Args:
-            train - train (`True`) or test (`False`) images (default: `True`)
-            path - path for the dataset (default: "./TRANCOS_v3")
-            size_red - reduction factor to apply to the image dimensions (default: 8)
-            transform - transformations to apply to the images as np.arrays (default: None)
-            gamma - precision parameter of the Gaussian kernel
-            get_camids - whether or not to return the camera ID of each image (default: `False`)
+            train: train (`True`) or test (`False`) images (default: `True`)
+            path: path for the dataset (default: "./TRANCOS_v3")
+            size_red: reduction factor to apply to the image dimensions (default: 8)
+            transform: transformations to apply to the images as np.arrays (default: None)
+            gamma: precision parameter of the Gaussian kernel
+            get_camids: whether or not to return the camera ID of each image (default: `False`)
         """
         self.path = path
         self.size_red = size_red
@@ -54,12 +55,12 @@ class Trancos(Dataset):
 
     def __getitem__(self, i):
         r"""
-        Outputs:
-            X  - sequence of images
-            mask - sequence of binary masks for each image
-            density - sequence of vehicle density maps for each image
-            count - sequence of vehicle counts for each image
-            cam_id - camera ID (only if get_camids is `True`)
+        Returns:
+            X: sequence of images
+            mask: sequence of binary masks for each image
+            density: sequence of vehicle density maps for each image
+            count: sequence of vehicle counts for each image
+            cam_id: camera ID (only if get_camids is `True`)
         """
 
         # get the image and the binary mask
@@ -115,12 +116,12 @@ class TrancosSeq(Trancos):
     def __init__(self, train=True, path='./TRANCOS_v3', size_red=8, transform=NP_T.ToTensor(), gamma=1e3, max_len=None):
         r"""
         Args:
-            train - train (`True`) or test (`False`) images (default: `True`)
-            path - path for the dataset (default: "./TRANCOS_v3")
-            size_red - reduction factor to apply to the image dimensions (default: 8)
-            transform - transformations to apply to the images as np.arrays (default: NP_T.ToTensor())
-            gamma - precision parameter of the Gaussian kernel
-            max_len - maximum sequence length (default: `None`)
+            train: train (`True`) or test (`False`) images (default: `True`)
+            path: path for the dataset (default: "./TRANCOS_v3")
+            size_red: reduction factor to apply to the image dimensions (default: 8)
+            transform: transformations to apply to the images as np.arrays (default: NP_T.ToTensor())
+            gamma: precision parameter of the Gaussian kernel
+            max_len: maximum sequence length (default: `None`)
         """
         super(TrancosSeq, self).__init__(train=train, path=path, size_red=size_red, transform=transform, gamma=gamma, get_camids=True)
 
@@ -148,13 +149,13 @@ class TrancosSeq(Trancos):
 
     def __getitem__(self, i):
         r"""
-        Outputs:
-            X  - sequence of images
-            mask - sequence of binary masks for each image
-            density - sequence of vehicle density maps for each image
-            count - sequence of vehicle counts for each image
-            cam_id - camera ID
-            seq_len - length of the sequence (without padding)
+        Returns:
+            X: sequence of images
+            mask: sequence of binary masks for each image
+            density: sequence of vehicle density maps for each image
+            count: sequence of vehicle counts for each image
+            cam_id: camera ID
+            seq_len: length of the sequence (without padding)
         """
         seq = self.seqs[i]
 
@@ -168,6 +169,16 @@ class TrancosSeq(Trancos):
             start_idx = 0
             stop_idx = len(seq)
             seq_len = stop_idx
+
+        # randomize the (random) transformations applied to first image of the sequence
+        # and then apply the same transformations to the remaining images of the sequence
+        if isinstance(self.transform, T.Compose):
+            for transf in self.transform.transforms:
+                if hasattr(transf, 'rand_state'):
+                    transf.reset_rand_state()
+        else:
+            if hasattr(self.transform, 'rand_state'):
+                self.transform.reset_rand_state()
 
         # build the sequences
         for j in range(start_idx, stop_idx):
@@ -226,3 +237,4 @@ if __name__ == '__main__':
 
     for i, (X, mask, density, count, cid, seq_len) in enumerate(data):
         print('Seq {}: cid={}, len={}'.format(i, cid, seq_len))
+
