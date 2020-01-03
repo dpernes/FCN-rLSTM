@@ -5,7 +5,7 @@ Zhang et al., "FCN-rLSTM: Deep spatio-temporal neural networks for vehicle count
 https://arxiv.org/abs/1707.09476
 
 This code was not written by any of the authors of the original work, so small differences may exist. Use it at your own risk.
-If you use the model implemented here, please do not forget to cite the paper:
+If you use the model implemented here in a publication, please do not forget to cite the paper:
 
 ```
 @inproceedings{zhang2017fcn,
