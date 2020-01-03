@@ -2,6 +2,7 @@
 
 Implementation of the model FCN-rLSTM, as described in the paper: 
 Zhang et al., "FCN-rLSTM: Deep spatio-temporal neural networks for vehicle counting in city cameras", *ICCV 2017*.
+https://arxiv.org/abs/1707.09476
 
 This code was not written by any of the authors of the original work, so small differences may exist. Use it at your own risk.
 If you use the model implemented here, please do not forget to cite the paper:
