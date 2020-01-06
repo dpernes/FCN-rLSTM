@@ -4,8 +4,8 @@ import time
 
 import numpy as np
 import torch
-import torchvision.transforms as T
 from torch.utils.data import DataLoader, Subset
+import torchvision.transforms as T
 
 import np_transforms as NP_T
 import plotter

@@ -5,28 +5,28 @@ import matplotlib.pyplot as plt
 import numpy as np
 from skimage import io
 
-DATA_PATH = '/home/dpernes/dataserver/DB/TRANCOS_v3'
+DATA_PATH = './TRANCOS_v3'
 OUTPUT_FILE = 'cams.txt'
-START_IMG = 'image-3-000397.jpg'  # start annotating from this image
+START_IMG = 'image-1-000001.jpg'  # start annotating from this image
 LOAD_ALL = True  # True is faster but requires more memory
+GALLERY_INIT = {}  # set as below to load a specified gallery
+# GALLERY_INIT = {
+#     'image-1-000001.jpg': 0,
+#     'image-1-000006.jpg': 1,
+#     'image-1-000019.jpg': 2,
+#     'image-1-000023.jpg': 3,
+#     'image-1-000036.jpg': 4,
+#     'image-1-000040.jpg': 5,
+#     'image-1-000048.jpg': 6,
+#     'image-1-000067.jpg': 7,
+#     'image-1-000070.jpg': 8,
+#     'image-1-000074.jpg': 9,
+#     'image-1-000088.jpg': 10,
+#     'image-1-000204.jpg': 11,
+#     'image-1-000208.jpg': 12,
+#     'image-1-000252.jpg': 13,
+# }
 GALLERY_ROWS = 6
-# GALLERY_INIT = {}  # set as below to load a specified gallery
-GALLERY_INIT = {
-    'image-1-000001.jpg': 0,
-    'image-1-000006.jpg': 1,
-    'image-1-000019.jpg': 2,
-    'image-1-000023.jpg': 3,
-    'image-1-000036.jpg': 4,
-    'image-1-000040.jpg': 5,
-    'image-1-000048.jpg': 6,
-    'image-1-000067.jpg': 7,
-    'image-1-000070.jpg': 8,
-    'image-1-000074.jpg': 9,
-    'image-1-000088.jpg': 10,
-    'image-1-000204.jpg': 11,
-    'image-1-000208.jpg': 12,
-    'image-1-000252.jpg': 13,
-}
 
 def gallery_update(label, cid, gallery, show=True, plot=(None, None)):
     fig, axis = plot

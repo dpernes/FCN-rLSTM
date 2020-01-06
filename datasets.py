@@ -1,15 +1,14 @@
 import os
-import random
 
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.io
+from skimage import io
 import skimage.transform as SkT
 import torch
-import torchvision.transforms as T
-from skimage import io
 from torch.utils.data import Dataset
+import torchvision.transforms as T
 
 import np_transforms as NP_T
 from utils import density_map
