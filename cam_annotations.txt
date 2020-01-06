@@ -543,7 +543,6 @@ image-2-000139.jpg 6
 image-2-000140.jpg 6
 image-2-000141.jpg 6
 image-2-000142.jpg 6
-image-2-000142.jpg 6
 image-2-000143.jpg 6
 image-2-000144.jpg 6
 image-2-000145.jpg 6
@@ -924,7 +923,6 @@ image-3-000099.jpg 1
 image-3-000100.jpg 1
 image-3-000101.jpg 1
 image-3-000102.jpg 1
-image-3-000103.jpg 1
 image-3-000103.jpg 1
 image-3-000104.jpg 1
 image-3-000105.jpg 1
