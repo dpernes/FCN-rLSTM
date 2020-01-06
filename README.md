@@ -27,4 +27,4 @@ If you make use of this data, please cite the following reference in any publica
   year={2015}
 }
 ```
-Camera annotations in `cam_annotations.txt` are my own and they are required for the experiments with sequential data. A handy script for manual annotation is provided in `annotate_cams.py`.
+Camera annotations in `cam_annotations.txt` are my own and they are required for the experiments with sequential data. A handy script for manual camera annotation is provided in `annotate_cams.py`.
