@@ -14,7 +14,7 @@ from utils import show_images, sort_seqs_by_len
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Test FCN in Trancos dataset.', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(description='Test FCN-rLSTM in Trancos dataset (sequential version).', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-m', '--model_path', default='./fcn_rlstm.pth', type=str, metavar='', help='model file (output of train)')
     parser.add_argument('-d', '--data_path', default='/ctm-hdd-pool01/DB/TRANCOS_v3', type=str, metavar='', help='data directory path')
     parser.add_argument('--batch_size', default=32, type=int, metavar='', help='batch size')
