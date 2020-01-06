@@ -24,26 +24,25 @@ class Trancos(Dataset):
     def __init__(self, train=True, path='./TRANCOS_v3', size_red=8, transform=None, gamma=1e3, get_camids=False):
         r"""
         Args:
-            train: train (`True`) or test (`False`) images (default: `True`)
-            path: path for the dataset (default: "./TRANCOS_v3")
-            size_red: reduction factor to apply to the image dimensions (default: 8)
-            transform: transformations to apply to the images as np.arrays (default: None)
-            gamma: precision parameter of the Gaussian kernel
-            get_camids: whether or not to return the camera ID of each image (default: `False`)
+            train: train (`True`) or test (`False`) images (default: `True`).
+            path: path for the dataset (default: "./TRANCOS_v3").
+            size_red: reduction factor to apply to the image dimensions (default: 8).
+            transform: transformations to apply to the images as np.arrays (default: None).
+            gamma: precision parameter of the Gaussian kernel (default: 1e3).
+            get_camids: whether or not to return the camera ID of each image (default: `False`).
         """
         self.path = path
         self.size_red = size_red
         self.transform = transform
         self.gamma = gamma
-        self.get_camids = get_camids
 
         if train:  # train + validation
             self.image_files = [img[:-1] for img in open(os.path.join(self.path, 'image_sets', 'trainval.txt'))]
         else:  # test
             self.image_files = [img[:-1] for img in open(os.path.join(self.path, 'image_sets', 'test.txt'))]
 
-        if self.get_camids:
-            self.cam_ids = {}
+        self.cam_ids = {}
+        if get_camids:
             with open(os.path.join(self.path, 'images', 'cam_annotations.txt')) as f:
                 for line in f:
                     img_f, cid = line.split()
@@ -56,11 +55,11 @@ class Trancos(Dataset):
     def __getitem__(self, i):
         r"""
         Returns:
-            X: sequence of images
-            mask: sequence of binary masks for each image
-            density: sequence of vehicle density maps for each image
-            count: sequence of vehicle counts for each image
-            cam_id: camera ID (only if get_camids is `True`)
+            X: image.
+            mask: binary mask of the image.
+            density: vehicle density map.
+            count: number of vehicles in the masked image.
+            cam_id: camera ID (only if get_camids is `True`).
         """
 
         # get the image and the binary mask
@@ -98,7 +97,7 @@ class Trancos(Dataset):
             # apply the transformation to the image, mask and density map
             X, mask, density = self.transform([X, mask, density])
 
-        if self.get_camids:
+        if self.cam_ids:
             cam_id = self.cam_ids[self.image_files[i]]
             return X, mask, density, count, cam_id
         else:
@@ -116,27 +115,32 @@ class TrancosSeq(Trancos):
     def __init__(self, train=True, path='./TRANCOS_v3', size_red=8, transform=NP_T.ToTensor(), gamma=1e3, max_len=None):
         r"""
         Args:
-            train: train (`True`) or test (`False`) images (default: `True`)
-            path: path for the dataset (default: "./TRANCOS_v3")
-            size_red: reduction factor to apply to the image dimensions (default: 8)
-            transform: transformations to apply to the images as np.arrays (default: NP_T.ToTensor())
-            gamma: precision parameter of the Gaussian kernel
-            max_len: maximum sequence length (default: `None`)
+            train: train (`True`) or test (`False`) images (default: `True`).
+            path: path for the dataset (default: "./TRANCOS_v3").
+            size_red: reduction factor to apply to the image dimensions (default: 8).
+            transform: transformations to apply to the images as np.arrays (default: `NP_T.ToTensor()`).
+            gamma: precision parameter of the Gaussian kernel (default: 1e3).
+            max_len: maximum sequence length (default: `None`).
         """
         super(TrancosSeq, self).__init__(train=train, path=path, size_red=size_red, transform=transform, gamma=gamma, get_camids=True)
 
         self.img2idx = {img: idx for idx, img in enumerate(self.image_files)}  # hash table from file names to indices
         self.seqs = []  # list of lists containing the names of the images in each sequence
         prev_cid = -1
+        cur_len = 0
         with open(os.path.join(self.path, 'images', 'cam_annotations.txt')) as f:
             for line in f:
                 img_f, cid = line.split()
                 if img_f in self.image_files:
-                    if cid == prev_cid:
+                    # all images in the sequence must be from the same camera
+                    # and all sequences must have length not greater than max_len
+                    if (int(cid) == prev_cid) and ((max_len is None) or (cur_len < max_len)):
                         self.seqs[-1].append(img_f)
+                        cur_len += 1
                     else:
                         self.seqs.append([img_f])
-                    prev_cid = cid
+                        cur_len = 1
+                        prev_cid = int(cid)
 
         if max_len is None:
             # maximum sequence length in the dataset
@@ -150,42 +154,31 @@ class TrancosSeq(Trancos):
     def __getitem__(self, i):
         r"""
         Returns:
-            X: sequence of images
-            mask: sequence of binary masks for each image
-            density: sequence of vehicle density maps for each image
-            count: sequence of vehicle counts for each image
-            cam_id: camera ID
-            seq_len: length of the sequence (without padding)
+            X: sequence of images, tensor with shape (max_seq_len, channels, height, width)
+            mask: sequence of binary masks for each image, tensor with shape (max_seq_len, 1, height, width)
+            density: sequence of vehicle density maps for each image, tensor with shape (max_seq_len, 1, height, width)
+            count: sequence of vehicle counts for each image, tensor with shape (max_seq_len)
+            cam_id: camera ID, integer
+            seq_len: length of the sequence (before padding), integer
         """
         seq = self.seqs[i]
+        seq_len = len(seq)
 
-        if len(seq) > self.max_len:
-            # get a random subsequence of length max_len
-            start_idx = random.randint(0, len(seq)-self.max_len)
-            stop_idx = start_idx + self.max_len
-            seq_len = self.max_len
-        else:
-            # get the whole sequence (later we do zero padding if seq_len < max_len)
-            start_idx = 0
-            stop_idx = len(seq)
-            seq_len = stop_idx
-
-        # randomize the (random) transformations applied to first image of the sequence
+        # randomize the (random) transformations applied to the first image of the sequence
         # and then apply the same transformations to the remaining images of the sequence
         if isinstance(self.transform, T.Compose):
             for transf in self.transform.transforms:
                 if hasattr(transf, 'rand_state'):
                     transf.reset_rand_state()
-        else:
-            if hasattr(self.transform, 'rand_state'):
-                self.transform.reset_rand_state()
+        elif hasattr(self.transform, 'rand_state'):
+            self.transform.reset_rand_state()
 
         # build the sequences
-        for j in range(start_idx, stop_idx):
-            idx = self.img2idx[seq[j]]
+        for j, img in enumerate(seq):
+            idx = self.img2idx[img]
             Xj, maskj, densityj, countj, cam_id = super().__getitem__(idx)
 
-            if j == start_idx:
+            if j == 0:
                 X, mask, density = Xj.unsqueeze(0), maskj.unsqueeze(0), densityj.unsqueeze(0)
                 count = torch.Tensor([countj])
             else:
@@ -233,8 +226,7 @@ if __name__ == '__main__':
         plt.show()
 
 
-    data = TrancosSeq(train=True, path='/ctm-hdd-pool01/DB/TRANCOS_v3', transform=NP_T.ToTensor())
+    data = TrancosSeq(train=True, path='/ctm-hdd-pool01/DB/TRANCOS_v3')
 
     for i, (X, mask, density, count, cid, seq_len) in enumerate(data):
         print('Seq {}: cid={}, len={}'.format(i, cid, seq_len))
-

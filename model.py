@@ -14,8 +14,8 @@ class FCN_rLSTM(nn.Module):
     def __init__(self, temporal=False, image_dim=None):
         r"""
         Args:
-            temporal: whether to have or not the LSTM block in the network (default: `False`)
-            image_dim: tuple (height, width) with image dimensions, only needed if `temporal` is True (default: `None`)
+            temporal: whether to have or not the LSTM block in the network (default: `False`).
+            image_dim: tuple (height, width) with image dimensions, only needed if `temporal` is `True` (default: `None`).
         """
         super(FCN_rLSTM, self).__init__()
 
@@ -81,33 +81,35 @@ class FCN_rLSTM(nn.Module):
 
     def init_hidden(self, batch_size):
         """
-        Initializes the hidden state of the LSTM with Gaussian noise
+        Provides Gaussian samples to be used as initial values for the hidden states of the LSTM.
 
         Args:
-            batch_size: the size of the current batch
+            batch_size: the size of the current batch.
+
+        Returns:
+            h0: tensor with shape (num_layers, batch_size, hidden_dim).
+            c0: tensor with shape (num_layers, batch_size, hidden_dim).
         """
-        h0 = torch.randn(3, batch_size, 100)  # initial state has shape (num_layers, batch_size, hidden_dim)
-        h0 = h0.to(next(self.parameters()).device)
-        c0 = torch.randn(3, batch_size, 100)  # initial state has shape (num_layers, batch_size, hidden_dim)
-        c0 = c0.to(next(self.parameters()).device)
+        h0, c0 = torch.randn(3, batch_size, 100), torch.randn(3, batch_size, 100)  # each LSTM state has shape (num_layers, batch_size, hidden_dim)
+        device = next(self.parameters()).device
+        h0, c0 = h0.to(device), c0.to(device)
         return h0, c0
 
     def forward(self, X, mask=None, lengths=None):
         r"""
         Args:
-            X: tensor with shape (seq_len, batch_size, channels, height, width) if `temporal` is `True` or (batch_size, channels, height, width) otherwise
+            X: tensor with shape (seq_len, batch_size, channels, height, width) if `temporal` is `True` or (batch_size, channels, height, width) otherwise.
             mask: binary tensor with same shape as X to mask values outside the active region;
-                if `None`, no masking is applied (default: `None`)
+                if `None`, no masking is applied (default: `None`).
             lengths: tensor with shape (batch_size,) containing the lengths of each sequence, which must be in decreasing order;
-                if `None`, all sequences are assumed to have maximum length (default: `None`)
+                if `None`, all sequences are assumed to have maximum length (default: `None`).
 
         Returns:
-            density: predicted density map, tensor with shape (seq_len, batch_size, 1, height, width) if `temporal` is `True` or (batch_size, 1, height, width) otherwise
-            count: predicted number of vehicles in each image, tensor with shape (seq_len, batch_size) if `temporal` is `True` or (batch_size) otherwise
+            density: predicted density map, tensor with shape (seq_len, batch_size, 1, height, width) if `temporal` is `True` or (batch_size, 1, height, width) otherwise.
+            count: predicted number of vehicles in each image, tensor with shape (seq_len, batch_size) if `temporal` is `True` or (batch_size) otherwise.
         """
 
-        if self.temporal:
-            # X has shape (T, N, C, H, W)
+        if self.temporal:  # X has shape (T, N, C, H, W)
             T, N, C, H, W = X.shape
             X = X.reshape(T*N, C, H, W)
             if mask is not None:

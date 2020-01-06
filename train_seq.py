@@ -124,11 +124,11 @@ def main():
             loss = density_loss + args['lambda']*count_loss
 
             # backward pass and optimization step
-            optimizer.zero_grad()  # very important! (otherwise, gradients accumulate)
+            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-            print('{}/{} mini-batch loss: {:.3f} | density_loss: {:.3f} | count loss: {:.3f}'
+            print('{}/{} mini-batch loss: {:.3f} | density loss: {:.3f} | count loss: {:.3f}'
                   .format(i, len(train_loader)-1, loss.item(), density_loss.item(), count_loss.item()),
                   flush=True, end='\r')
 
@@ -165,7 +165,7 @@ def main():
             density_pred, count_pred = density_pred.transpose(1, 0), count_pred.transpose(1, 0)
             N, L, C, H, W = X.shape
             X, density, count = X.reshape(N*L, C, H, W).cpu().numpy(), density.reshape(N*L, 1, H, W).cpu().numpy(), count.reshape(N*L).cpu().numpy()
-            density_pred, count_pred = density_pred.reshape(L*N, 1, H, W).detach().cpu().numpy(), count_pred.reshape(L*N).detach().cpu().numpy()
+            density_pred, count_pred = density_pred.reshape(N*L, 1, H, W).detach().cpu().numpy(), count_pred.reshape(N*L).detach().cpu().numpy()
             n2show = min(args['n2show'], X.shape[0])  # show args['n2show'] images at most
             show_images(img_plt, 'train gt', X[0:n2show], density[0:n2show], count[0:n2show], shape=args['vis_shape'])
             show_images(img_plt, 'train pred', X[0:n2show], density_pred[0:n2show], count_pred[0:n2show], shape=args['vis_shape'])
@@ -233,7 +233,7 @@ def main():
             density_pred, count_pred = density_pred.transpose(1, 0), count_pred.transpose(1, 0)
             N, L, C, H, W = X.shape
             X, density, count = X.reshape(N*L, C, H, W).cpu().numpy(), density.reshape(N*L, 1, H, W).cpu().numpy(), count.reshape(N*L).cpu().numpy()
-            density_pred, count_pred = density_pred.reshape(L*N, 1, H, W).cpu().numpy(), count_pred.reshape(L*N).cpu().numpy()
+            density_pred, count_pred = density_pred.reshape(N*L, 1, H, W).cpu().numpy(), count_pred.reshape(N*L).cpu().numpy()
             n2show = min(args['n2show'], X.shape[0])  # show args['n2show'] images at most
             show_images(img_plt, 'valid gt', X[0:n2show], density[0:n2show], count[0:n2show], shape=args['vis_shape'])
             show_images(img_plt, 'valid pred', X[0:n2show], density_pred[0:n2show], count_pred[0:n2show], shape=args['vis_shape'])

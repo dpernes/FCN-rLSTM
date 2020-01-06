@@ -118,11 +118,11 @@ def main():
             loss = density_loss + args['lambda']*count_loss
 
             # backward pass and optimization step
-            optimizer.zero_grad()  # very important! (otherwise, gradients accumulate)
+            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-            print('{}/{} mini-batch loss: {:.3f} | density_loss: {:.3f} | count loss: {:.3f}'
+            print('{}/{} mini-batch loss: {:.3f} | density loss: {:.3f} | count loss: {:.3f}'
                   .format(i, len(train_loader)-1, loss.item(), density_loss.item(), count_loss.item()),
                   flush=True, end='\r')
 
