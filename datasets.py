@@ -20,7 +20,7 @@ class Trancos(Dataset):
     Guerrero-Gómez-Olmedo et al., "Extremely overlapping vehicle counting.", IbPRIA 2015.
     """
 
-    def __init__(self, train=True, path='./TRANCOS_v3', size_red=8, transform=None, gamma=1e3, get_camids=False):
+    def __init__(self, train=True, path='./TRANCOS_v3', size_red=8, transform=None, gamma=1e3, get_camids=False, cameras=[]):
         r"""
         Args:
             train: train (`True`) or test (`False`) images (default: `True`).
@@ -29,6 +29,8 @@ class Trancos(Dataset):
             transform: transformations to apply to the images as np.arrays (default: None).
             gamma: precision parameter of the Gaussian kernel (default: 1e3).
             get_camids: whether or not to return the camera ID of each image (default: `False`).
+            cameras: list with the camera IDs to be used, so that images from other cameras are discarded;
+                if empty, all cameras are used; it has no effect if `get_camids` is `False` (default: []).
         """
         self.path = path
         self.size_red = size_red
@@ -47,6 +49,16 @@ class Trancos(Dataset):
                     img_f, cid = line.split()
                     if img_f in self.image_files:
                         self.cam_ids[img_f] = int(cid)
+
+            if cameras:
+                # only keep images from the provided cameras
+                img2rem = []
+                for img_f in self.image_files:
+                    if self.cam_ids[img_f] not in cameras:
+                        img2rem.append(img_f)
+
+                self.image_files = [img_f for img_f in self.image_files if img_f not in img2rem]
+                self.cam_ids = {img_f: self.cam_ids[img_f] for img_f in self.image_files if img_f not in img2rem}
 
     def __len__(self):
         return len(self.image_files)
@@ -111,7 +123,7 @@ class TrancosSeq(Trancos):
     This version assumes the data is sequential, i.e. it returns sequences of images captured by the same camera.
     """
 
-    def __init__(self, train=True, path='./TRANCOS_v3', size_red=8, transform=NP_T.ToTensor(), gamma=1e3, max_len=None):
+    def __init__(self, train=True, path='./TRANCOS_v3', size_red=8, transform=NP_T.ToTensor(), gamma=1e3, max_len=None, cameras=[]):
         r"""
         Args:
             train: train (`True`) or test (`False`) images (default: `True`).
@@ -120,8 +132,10 @@ class TrancosSeq(Trancos):
             transform: transformations to apply to the images as np.arrays (default: `NP_T.ToTensor()`).
             gamma: precision parameter of the Gaussian kernel (default: 1e3).
             max_len: maximum sequence length (default: `None`).
+            cameras: list with the camera IDs to be used, so that images from other cameras are discarded;
+                if empty, all cameras are used; it has no effect if `get_camids` is `False` (default: []).
         """
-        super(TrancosSeq, self).__init__(train=train, path=path, size_red=size_red, transform=transform, gamma=gamma, get_camids=True)
+        super(TrancosSeq, self).__init__(train=train, path=path, size_red=size_red, transform=transform, gamma=gamma, get_camids=True, cameras=cameras)
 
         self.img2idx = {img: idx for idx, img in enumerate(self.image_files)}  # hash table from file names to indices
         self.seqs = []  # list of lists containing the names of the images in each sequence
@@ -223,7 +237,6 @@ if __name__ == '__main__':
         ax3.imshow(Xh.astype('uint8'))
         ax3.set_title('Highlighted vehicles')
         plt.show()
-
 
     data = TrancosSeq(train=True, path='/ctm-hdd-pool01/DB/TRANCOS_v3')
 
