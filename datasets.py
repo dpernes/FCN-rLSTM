@@ -214,14 +214,15 @@ class TrancosSeq(Trancos):
 
 # some debug code
 if __name__ == '__main__':
-    data = Trancos(train=True, path='/ctm-hdd-pool01/DB/TRANCOS_v3', transform=NP_T.RandomHorizontalFlip(0.5), get_camids=True)
+    # data = Trancos(train=True, path='/ctm-hdd-pool01/DB/TRANCOS_v3', transform=NP_T.RandomHorizontalFlip(0.5), get_camids=True)
+    data = Trancos(train=True, path='/home/dpernes/dataserver/DB/TRANCOS_v3', transform=NP_T.RandomHorizontalFlip(0.5), get_camids=True)
 
     for i, (X, mask, density, count, cid) in enumerate(data):
         print('Image {}: cid={}, count={}, density_sum={:.3f}'.format(i, cid, count, np.sum(density)))
         gs = gridspec.GridSpec(2, 2)
         fig = plt.figure()
         ax1 = fig.add_subplot(gs[0, 0])
-        ax1.imshow(X)
+        ax1.imshow(X*mask/255.)
         ax1.set_title('Masked image')
         ax2 = fig.add_subplot(gs[0, 1])
         density = density.squeeze()
