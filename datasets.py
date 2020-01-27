@@ -212,31 +212,28 @@ class TrancosSeq(Trancos):
 
 # some debug code
 if __name__ == '__main__':
-    # data = Trancos(train=True, path='/ctm-hdd-pool01/DB/TRANCOS_v3', transform=NP_T.RandomHorizontalFlip(0.5), get_camids=True)
-    data = Trancos(train=True, path='/home/dpernes/dataserver/DB/TRANCOS_v3', transform=NP_T.RandomHorizontalFlip(0.5), get_camids=True, cameras=[5,6])
+    data = Trancos(train=True, path='/ctm-hdd-pool01/DB/TRANCOS_v3', transform=NP_T.RandomHorizontalFlip(0.5), get_camids=True)
+
     for i, (X, mask, density, count, cid) in enumerate(data):
         print('Image {}: cid={}, count={}, density_sum={:.3f}'.format(i, cid, count, np.sum(density)))
+        gs = gridspec.GridSpec(2, 2)
+        fig = plt.figure()
+        ax1 = fig.add_subplot(gs[0, 0])
+        ax1.imshow(X)
+        ax1.set_title('Masked image')
+        ax2 = fig.add_subplot(gs[0, 1])
+        density = density.squeeze()
+        ax2.imshow(density, cmap='gray')
+        ax2.set_title('Density map')
+        ax3 = fig.add_subplot(gs[1, :])
+        Xh = np.tile(np.mean(X, axis=2, keepdims=True), (1, 1, 3))
+        Xh[:, :, 1] *= (1-density/np.max(density))
+        Xh[:, :, 2] *= (1-density/np.max(density))
+        ax3.imshow(Xh.astype('uint8'))
+        ax3.set_title('Highlighted vehicles')
+        plt.show()
 
-    # for i, (X, mask, density, count, cid) in enumerate(data):
-    #     print('Image {}: cid={}, count={}, density_sum={:.3f}'.format(i, cid, count, np.sum(density)))
-    #     gs = gridspec.GridSpec(2, 2)
-    #     fig = plt.figure()
-    #     ax1 = fig.add_subplot(gs[0, 0])
-    #     ax1.imshow(X)
-    #     ax1.set_title('Masked image')
-    #     ax2 = fig.add_subplot(gs[0, 1])
-    #     density = density.squeeze()
-    #     ax2.imshow(density, cmap='gray')
-    #     ax2.set_title('Density map')
-    #     ax3 = fig.add_subplot(gs[1, :])
-    #     Xh = np.tile(np.mean(X, axis=2, keepdims=True), (1, 1, 3))
-    #     Xh[:, :, 1] *= (1-density/np.max(density))
-    #     Xh[:, :, 2] *= (1-density/np.max(density))
-    #     ax3.imshow(Xh.astype('uint8'))
-    #     ax3.set_title('Highlighted vehicles')
-    #     plt.show()
+    data = TrancosSeq(train=True, path='/ctm-hdd-pool01/DB/TRANCOS_v3')
 
-    # data = TrancosSeq(train=True, path='/ctm-hdd-pool01/DB/TRANCOS_v3')
-
-    # for i, (X, mask, density, count, cid, seq_len) in enumerate(data):
-    #     print('Seq {}: cid={}, len={}'.format(i, cid, seq_len))
+    for i, (X, mask, density, count, cid, seq_len) in enumerate(data):
+        print('Seq {}: cid={}, len={}'.format(i, cid, seq_len))
