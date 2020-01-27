@@ -82,6 +82,7 @@ class Trancos(Dataset):
         X = io.imread(os.path.join(self.path, 'images', img_f))
         mask = scipy.io.loadmat(os.path.join(self.path, 'images', img_f.replace('.jpg', 'mask.mat')))['BW']
         mask = mask[:, :, np.newaxis].astype('float32')
+        img_centers = self.centers[img_f]
 
         # reduce the size of image and mask by the given amount
         H_orig, W_orig = X.shape[0], X.shape[1]
@@ -93,13 +94,13 @@ class Trancos(Dataset):
         # compute the density map
         density = density_map(
             (H_orig, W_orig),
-            self.centers[img_f],
-            self.gamma*np.ones(len(self.centers[img_f])),
+            img_centers,
+            self.gamma*np.ones(len(img_centers)),
             out_shape=(H_new, W_new))
         density = density[:, :, np.newaxis].astype('float32')
 
         # get the number of vehicles in the image and the camera ID
-        count = len(self.centers[img_f])
+        count = len(img_centers)
 
         if self.transform:
             # apply the transformation to the image, mask and density map
