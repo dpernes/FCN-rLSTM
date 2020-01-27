@@ -65,7 +65,7 @@ class Trancos(Dataset):
             mask: binary mask of the image.
             density: vehicle density map.
             count: number of vehicles in the masked image.
-            cam_id: camera ID (only if get_camids is `True`).
+            cam_id: camera ID (only if `get_camids` is `True`).
         """
 
         # get the image and the binary mask
