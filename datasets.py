@@ -61,7 +61,7 @@ class Trancos(Dataset):
             with open(os.path.join(self.path, 'images', img_f.replace('.jpg', '.txt'))) as f:
                 for line in f:
                     x, y = line.split()
-                    x, y = int(x) - 1, int(y) - 1  # provided indexes are for Matlab, which starts indexing at 1
+                    x, y = int(x)-1, int(y)-1  # provided indexes are for Matlab, which starts indexing at 1
                     self.centers[img_f].append((x, y))
 
     def __len__(self):
