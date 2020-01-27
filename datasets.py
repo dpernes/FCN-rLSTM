@@ -55,6 +55,15 @@ class Trancos(Dataset):
                 self.image_files = [img_f for img_f in self.image_files if self.cam_ids[img_f] in cameras]
                 self.cam_ids = {img_f: self.cam_ids[img_f] for img_f in self.image_files}
 
+        # get the coordinates of the centers of all vehicles in all images
+        self.centers = {img_f: [] for img_f in self.image_files}
+        for img_f in self.image_files:
+            with open(os.path.join(self.path, 'images', img_f.replace('.jpg', '.txt'))) as f:
+                for line in f:
+                    x, y = line.split()
+                    x, y = int(x) - 1, int(y) - 1  # provided indexes are for Matlab, which starts indexing at 1
+                    self.centers[img_f].append((x, y))
+
     def __len__(self):
         return len(self.image_files)
 
@@ -69,17 +78,10 @@ class Trancos(Dataset):
         """
 
         # get the image and the binary mask
-        X = io.imread(os.path.join(self.path, 'images', self.image_files[i]))
-        mask = scipy.io.loadmat(os.path.join(self.path, 'images', self.image_files[i].replace('.jpg', 'mask.mat')))['BW']
+        img_f = self.image_files[i]
+        X = io.imread(os.path.join(self.path, 'images', img_f))
+        mask = scipy.io.loadmat(os.path.join(self.path, 'images', img_f.replace('.jpg', 'mask.mat')))['BW']
         mask = mask[:, :, np.newaxis].astype('float32')
-
-        # get the coordinates of the centers of all vehicles in the image
-        centers = []
-        with open(os.path.join(self.path, 'images', self.image_files[i].replace('.jpg', '.txt'))) as f:
-            for line in f:
-                x = int(line.split()[0]) - 1  # provided indexes are for Matlab, which starts indexing at 1
-                y = int(line.split()[1]) - 1
-                centers.append((x, y))
 
         # reduce the size of image and mask by the given amount
         H_orig, W_orig = X.shape[0], X.shape[1]
@@ -91,13 +93,13 @@ class Trancos(Dataset):
         # compute the density map
         density = density_map(
             (H_orig, W_orig),
-            centers,
-            self.gamma*np.ones(len(centers)),
+            self.centers[img_f],
+            self.gamma*np.ones(len(self.centers[img_f])),
             out_shape=(H_new, W_new))
         density = density[:, :, np.newaxis].astype('float32')
 
         # get the number of vehicles in the image and the camera ID
-        count = len(centers)
+        count = len(self.centers[img_f])
 
         if self.transform:
             # apply the transformation to the image, mask and density map
