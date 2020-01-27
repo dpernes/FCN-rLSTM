@@ -107,7 +107,7 @@ class Trancos(Dataset):
             X, mask, density = self.transform([X, mask, density])
 
         if self.cam_ids:
-            cam_id = self.cam_ids[self.image_files[i]]
+            cam_id = self.cam_ids[img_f]
             return X, mask, density, count, cam_id
         else:
             return X, mask, density, count
