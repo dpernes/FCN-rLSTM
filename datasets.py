@@ -20,7 +20,7 @@ class Trancos(Dataset):
     Guerrero-Gómez-Olmedo et al., "Extremely overlapping vehicle counting.", IbPRIA 2015.
     """
 
-    def __init__(self, train=True, path='./TRANCOS_v3', size_red=8, transform=None, gamma=1e3, get_camids=False, cameras=[]):
+    def __init__(self, train=True, path='./TRANCOS_v3', size_red=8, transform=None, gamma=1e3, get_cameras=False, cameras=None):
         r"""
         Args:
             train: train (`True`) or test (`False`) images (default: `True`).
@@ -28,9 +28,9 @@ class Trancos(Dataset):
             size_red: reduction factor to apply to the image dimensions (default: 8).
             transform: transformations to apply to the images as np.arrays (default: None).
             gamma: precision parameter of the Gaussian kernel (default: 1e3).
-            get_camids: whether or not to return the camera ID of each image (default: `False`).
+            get_cameras: whether or not to return the camera ID of each image (default: `False`).
             cameras: list with the camera IDs to be used, so that images from other cameras are discarded;
-                if empty, all cameras are used; it has no effect if `get_camids` is `False` (default: []).
+                if `None`, all cameras are used; it has no effect if `get_cameras` is `False` (default: `None`).
         """
         self.path = path
         self.size_red = size_red
@@ -43,14 +43,14 @@ class Trancos(Dataset):
             self.image_files = [img[:-1] for img in open(os.path.join(self.path, 'image_sets', 'test.txt'))]
 
         self.cam_ids = {}
-        if get_camids:
+        if get_cameras:
             with open(os.path.join(self.path, 'images', 'cam_annotations.txt')) as f:
                 for line in f:
                     img_f, cid = line.split()
                     if img_f in self.image_files:
                         self.cam_ids[img_f] = int(cid)
 
-            if cameras:
+            if cameras is not None:
                 # only keep images from the provided cameras
                 self.image_files = [img_f for img_f in self.image_files if self.cam_ids[img_f] in cameras]
                 self.cam_ids = {img_f: self.cam_ids[img_f] for img_f in self.image_files}
@@ -74,7 +74,7 @@ class Trancos(Dataset):
             mask: binary mask of the image.
             density: vehicle density map.
             count: number of vehicles in the masked image.
-            cam_id: camera ID (only if `get_camids` is `True`).
+            cam_id: camera ID (only if `get_cameras` is `True`).
         """
 
         # get the image and the binary mask
@@ -121,7 +121,7 @@ class TrancosSeq(Trancos):
     This version assumes the data is sequential, i.e. it returns sequences of images captured by the same camera.
     """
 
-    def __init__(self, train=True, path='./TRANCOS_v3', size_red=8, transform=NP_T.ToTensor(), gamma=1e3, max_len=None, cameras=[]):
+    def __init__(self, train=True, path='./TRANCOS_v3', size_red=8, transform=NP_T.ToTensor(), gamma=1e3, max_len=None, cameras=None):
         r"""
         Args:
             train: train (`True`) or test (`False`) images (default: `True`).
@@ -131,9 +131,9 @@ class TrancosSeq(Trancos):
             gamma: precision parameter of the Gaussian kernel (default: 1e3).
             max_len: maximum sequence length (default: `None`).
             cameras: list with the camera IDs to be used, so that images from other cameras are discarded;
-                if empty, all cameras are used; it has no effect if `get_camids` is `False` (default: []).
+                if `None`, all cameras are used; it has no effect if `get_cameras` is `False` (default: `None`).
         """
-        super(TrancosSeq, self).__init__(train=train, path=path, size_red=size_red, transform=transform, gamma=gamma, get_camids=True, cameras=cameras)
+        super(TrancosSeq, self).__init__(train=train, path=path, size_red=size_red, transform=transform, gamma=gamma, get_cameras=True, cameras=cameras)
 
         self.img2idx = {img: idx for idx, img in enumerate(self.image_files)}  # hash table from file names to indices
         self.seqs = []  # list of lists containing the names of the images in each sequence
@@ -215,8 +215,7 @@ class TrancosSeq(Trancos):
 
 # some debug code
 if __name__ == '__main__':
-    # data = Trancos(train=True, path='/ctm-hdd-pool01/DB/TRANCOS_v3', transform=NP_T.RandomHorizontalFlip(0.5), get_camids=True)
-    data = Trancos(train=True, path='/home/dpernes/dataserver/DB/TRANCOS_v3', transform=NP_T.RandomHorizontalFlip(0.5), get_camids=True)
+    data = Trancos(train=True, path='/ctm-hdd-pool01/DB/TRANCOS_v3', transform=NP_T.RandomHorizontalFlip(0.5), get_cameras=True)
 
     for i, (X, mask, density, count, cid) in enumerate(data):
         print('Image {}: cid={}, count={}, density_sum={:.3f}'.format(i, cid, count, np.sum(density)))
