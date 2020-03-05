@@ -23,7 +23,7 @@ def main():
     parser.add_argument('--epochs', default=500, type=int, metavar='', help='number of training epochs')
     parser.add_argument('--batch_size', default=32, type=int, metavar='', help='batch size')
     parser.add_argument('--size_red', default=4, type=int, metavar='', help='size reduction factor to be applied to the images')
-    parser.add_argument('--lambda', default=1e-4, type=float, metavar='', help='trade-off between density estimation and vehicle count losses (see eq. 7 in the paper)')
+    parser.add_argument('--lambda', default=1e-3, type=float, metavar='', help='trade-off between density estimation and vehicle count losses (see eq. 7 in the paper)')
     parser.add_argument('--gamma', default=1e3, type=float, metavar='', help='precision parameter of the Gaussian kernel (inverse of variance)')
     parser.add_argument('--weight_decay', default=0., type=float, metavar='', help='weight decay regularization')
     parser.add_argument('--use_cuda', default=True, type=int, metavar='', help='use CUDA capable GPU')
