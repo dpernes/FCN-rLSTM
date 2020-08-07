@@ -9,7 +9,7 @@ import torchvision.transforms as T
 
 import np_transforms as NP_T
 import plotter
-from datasets import TrancosSeq
+from datasets import TrancosSeq, WebcamTSeq
 from model import FCN_rLSTM
 from utils import show_images, sort_seqs_by_len
 
@@ -17,7 +17,8 @@ from utils import show_images, sort_seqs_by_len
 def main():
     parser = argparse.ArgumentParser(description='Train FCN-rLSTM in Trancos dataset (sequential version).', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-m', '--model_path', default='./fcn_rlstm.pth', type=str, metavar='', help='model file (output of train)')
-    parser.add_argument('-d', '--data_path', default='/ctm-hdd-pool01/DB/TRANCOS_v3', type=str, metavar='', help='data directory path')
+    parser.add_argument('-d', '--dataset', default='TRANCOS', type=str, metavar='', help='dataset')
+    parser.add_argument('-p', '--data_path', default='/ctm-hdd-pool01/DB/TRANCOS_v3', type=str, metavar='', help='data directory path')
     parser.add_argument('--valid', default=0.2, type=float, metavar='', help='fraction of the training data for validation')
     parser.add_argument('--lr', default=1e-3, type=float, metavar='', help='learning rate')
     parser.add_argument('--epochs', default=500, type=int, metavar='', help='number of training epochs')
@@ -58,8 +59,12 @@ def main():
     valid_transf = NP_T.ToTensor()  # no data augmentation in validation
 
     # instantiate the dataset
-    train_data = TrancosSeq(train=True, path=args['data_path'], size_red=args['size_red'], transform=train_transf, gamma=args['gamma'], max_len=args['max_len'])
-    valid_data = TrancosSeq(train=True, path=args['data_path'], size_red=args['size_red'], transform=valid_transf, gamma=args['gamma'], max_len=args['max_len'])
+    if args['dataset'].upper() == 'TRANCOS':
+        train_data = TrancosSeq(train=True, path=args['data_path'], size_red=args['size_red'], transform=train_transf, gamma=args['gamma'], max_len=args['max_len'])
+        valid_data = TrancosSeq(train=True, path=args['data_path'], size_red=args['size_red'], transform=valid_transf, gamma=args['gamma'], max_len=args['max_len'])
+    else:
+        train_data = WebcamTSeq(path=args['data_path'], transform=train_transf, gamma=args['gamma'], max_len=args['max_len'], load_all=True)
+        valid_data = WebcamTSeq(path=args['data_path'], transform=valid_transf, gamma=args['gamma'], max_len=args['max_len'], load_all=True)
 
     # split the data into training and validation sets
     if args['valid'] > 0:

@@ -9,20 +9,21 @@ from torch.utils.data import DataLoader, Subset
 
 import np_transforms as NP_T
 import plotter
-from datasets import Trancos
+from datasets import Trancos, WebcamT
 from model import FCN_rLSTM
 from utils import show_images
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Train FCN in Trancos dataset.', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(description='Train FCN in Trancos or WebcamT datasets.', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-m', '--model_path', default='./fcn.pth', type=str, metavar='', help='model file (output of train)')
-    parser.add_argument('-d', '--data_path', default='/ctm-hdd-pool01/DB/TRANCOS_v3', type=str, metavar='', help='data directory path')
+    parser.add_argument('-d', '--dataset', default='TRANCOS', type=str, metavar='', help='dataset')
+    parser.add_argument('-p', '--data_path', default='/ctm-hdd-pool01/DB/TRANCOS_v3', type=str, metavar='', help='data directory path')
     parser.add_argument('--valid', default=0.2, type=float, metavar='', help='fraction of the training data for validation')
     parser.add_argument('--lr', default=1e-3, type=float, metavar='', help='learning rate')
     parser.add_argument('--epochs', default=500, type=int, metavar='', help='number of training epochs')
     parser.add_argument('--batch_size', default=32, type=int, metavar='', help='batch size')
-    parser.add_argument('--size_red', default=4, type=int, metavar='', help='size reduction factor to be applied to the images')
+    parser.add_argument('--img_shape', default=[120, 160], type=int, metavar='', help='shape of the input images')
     parser.add_argument('--lambda', default=1e-3, type=float, metavar='', help='trade-off between density estimation and vehicle count losses (see eq. 7 in the paper)')
     parser.add_argument('--gamma', default=1e3, type=float, metavar='', help='precision parameter of the Gaussian kernel (inverse of variance)')
     parser.add_argument('--weight_decay', default=0., type=float, metavar='', help='weight decay regularization')
@@ -57,8 +58,12 @@ def main():
     valid_transf = NP_T.ToTensor()  # no data augmentation in validation
 
     # instantiate the dataset
-    train_data = Trancos(train=True, path=args['data_path'], size_red=args['size_red'], transform=train_transf, gamma=args['gamma'])
-    valid_data = Trancos(train=True, path=args['data_path'], size_red=args['size_red'], transform=valid_transf, gamma=args['gamma'])
+    if args['dataset'].upper() == 'TRANCOS':
+        train_data = Trancos(train=True, path=args['data_path'], out_shape=args['out_shape'], transform=train_transf, gamma=args['gamma'])
+        valid_data = Trancos(train=True, path=args['data_path'], out_shape=args['out_shape'], transform=valid_transf, gamma=args['gamma'])
+    else:
+        train_data = WebcamT(path=args['data_path'], out_shape=args['out_shape'], transform=train_transf, gamma=args['gamma'])
+        valid_data = WebcamT(path=args['data_path'], out_shape=args['out_shape'], transform=valid_transf, gamma=args['gamma'])
 
     # split the data into training and validation sets
     if args['valid'] > 0:

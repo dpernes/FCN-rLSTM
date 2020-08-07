@@ -1,4 +1,5 @@
 import os
+import xml.etree.ElementTree as ET
 
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
@@ -20,22 +21,23 @@ class Trancos(Dataset):
     Guerrero-Gómez-Olmedo et al., "Extremely overlapping vehicle counting.", IbPRIA 2015.
     """
 
-    def __init__(self, train=True, path='./TRANCOS_v3', size_red=8, transform=None, gamma=1e3, get_cameras=False, cameras=None):
+    def __init__(self, train=True, path='./TRANCOS_v3', out_shape=(120, 160), transform=None, gamma=30, get_cameras=False, cameras=None, load_all=True):
         r"""
         Args:
             train: train (`True`) or test (`False`) images (default: `True`).
             path: path for the dataset (default: "./TRANCOS_v3").
-            size_red: reduction factor to apply to the image dimensions (default: 8).
+            out_shape: shape of the output images (default: (120, 176)).
             transform: transformations to apply to the images as np.arrays (default: None).
-            gamma: precision parameter of the Gaussian kernel (default: 1e3).
+            gamma: precision parameter of the Gaussian kernel (default: 30).
             get_cameras: whether or not to return the camera ID of each image (default: `False`).
             cameras: list with the camera IDs to be used, so that images from other cameras are discarded;
                 if `None`, all cameras are used; it has no effect if `get_cameras` is `False` (default: `None`).
         """
         self.path = path
-        self.size_red = size_red
+        self.out_shape = out_shape
         self.transform = transform
         self.gamma = gamma
+        self.load_all = load_all
 
         if train:  # train + validation
             self.image_files = [img[:-1] for img in open(os.path.join(self.path, 'image_sets', 'trainval.txt'))]
@@ -64,6 +66,38 @@ class Trancos(Dataset):
                     x, y = int(x)-1, int(y)-1  # provided indexes are for Matlab, which starts indexing at 1
                     self.centers[img_f].append((x, y))
 
+        if self.load_all:
+            # load all the data into memory
+            self.images, self.masks, self.densities = [], [], []
+            for img_f in self.image_files:
+                X, mask, density = self.load_example(img_f)
+                self.images.append(X)
+                self.masks.append(mask)
+                self.densities.append(density)
+
+    def load_example(self, img_f):
+        # load the image and the binary mask
+        X = io.imread(os.path.join(self.path, 'images', img_f))
+        mask = scipy.io.loadmat(os.path.join(self.path, 'images', img_f.replace('.jpg', 'mask.mat')))['BW']
+        mask = mask[:, :, np.newaxis].astype('float32')
+        img_centers = self.centers[img_f]
+
+        # reduce the size of image and mask by the given amount
+        H_orig, W_orig = X.shape[0], X.shape[1]
+        if H_orig != self.out_shape[0] or W_orig != self.out_shape[1]:
+            X = SkT.resize(X, self.out_shape, preserve_range=True).astype('uint8')
+            mask = SkT.resize(mask, self.out_shape, preserve_range=True).astype('float32')
+
+        # compute the density map
+        density = density_map(
+            (H_orig, W_orig),
+            img_centers,
+            self.gamma*np.ones((len(img_centers), 2)),
+            out_shape=self.out_shape)
+        density = density[:, :, np.newaxis].astype('float32')
+
+        return X, mask, density
+
     def __len__(self):
         return len(self.image_files)
 
@@ -76,28 +110,16 @@ class Trancos(Dataset):
             count: number of vehicles in the masked image.
             cam_id: camera ID (only if `get_cameras` is `True`).
         """
-
-        # get the image and the binary mask
-        img_f = self.image_files[i]
-        X = io.imread(os.path.join(self.path, 'images', img_f))
-        mask = scipy.io.loadmat(os.path.join(self.path, 'images', img_f.replace('.jpg', 'mask.mat')))['BW']
-        mask = mask[:, :, np.newaxis].astype('float32')
-        img_centers = self.centers[img_f]
-
-        # reduce the size of image and mask by the given amount
-        H_orig, W_orig = X.shape[0], X.shape[1]
-        H_new, W_new = int(X.shape[0]/self.size_red), int(X.shape[1]/self.size_red)
-        if self.size_red > 1:
-            X = SkT.resize(X, (H_new, W_new), preserve_range=True).astype('uint8')
-            mask = SkT.resize(mask, (H_new, W_new), preserve_range=True).astype('float32')
-
-        # compute the density map
-        density = density_map(
-            (H_orig, W_orig),
-            img_centers,
-            self.gamma*np.ones(len(img_centers)),
-            out_shape=(H_new, W_new))
-        density = density[:, :, np.newaxis].astype('float32')
+        if self.load_all:
+            img_f = self.image_files[i]
+            X = self.images[i]
+            mask = self.masks[i]
+            density = self.densities[i]
+            img_centers = self.centers[img_f]
+        else:
+            img_f = self.image_files[i]
+            X, mask, density = self.load_example(img_f)
+            img_centers = self.centers[img_f]
 
         # get the number of vehicles in the image and the camera ID
         count = len(img_centers)
@@ -121,14 +143,14 @@ class TrancosSeq(Trancos):
     This version assumes the data is sequential, i.e. it returns sequences of images captured by the same camera.
     """
 
-    def __init__(self, train=True, path='./TRANCOS_v3', size_red=8, transform=NP_T.ToTensor(), gamma=1e3, max_len=None, cameras=None):
+    def __init__(self, train=True, path='./TRANCOS_v3', out_shape=8, transform=NP_T.ToTensor(), gamma=30, max_len=None, cameras=None):
         r"""
         Args:
             train: train (`True`) or test (`False`) images (default: `True`).
             path: path for the dataset (default: "./TRANCOS_v3").
-            size_red: reduction factor to apply to the image dimensions (default: 8).
+            out_shape: shape of the output images (default: (120, 176)).
             transform: transformations to apply to the images as np.arrays (default: `NP_T.ToTensor()`).
-            gamma: precision parameter of the Gaussian kernel (default: 1e3).
+            gamma: precision parameter of the Gaussian kernel (default: 30).
             max_len: maximum sequence length (default: `None`).
             cameras: list with the camera IDs to be used, so that images from other cameras are discarded;
                 if `None`, all cameras are used; it has no effect if `get_cameras` is `False` (default: `None`).
@@ -185,30 +207,218 @@ class TrancosSeq(Trancos):
             self.transform.reset_rand_state()
 
         # build the sequences
-        for j, img in enumerate(seq):
-            idx = self.img2idx[img]
-            Xj, maskj, densityj, countj, cam_id = super().__getitem__(idx)
+        X = torch.zeros(self.max_len, 3, self.out_shape[0], self.out_shape[1])
+        mask = torch.zeros(self.max_len, 1, self.out_shape[0], self.out_shape[1])
+        density = torch.zeros(self.max_len, 1, self.out_shape[0], self.out_shape[1])
+        count = torch.zeros(self.max_len)
+        for j, img_f in enumerate(seq):
+            idx = self.img2idx[img_f]
+            X[j], mask[j], density[j], count[j], cam_id = super().__getitem__(idx)
 
-            if j == 0:
-                X, mask, density = Xj.unsqueeze(0), maskj.unsqueeze(0), densityj.unsqueeze(0)
-                count = torch.Tensor([countj])
+        return X, mask, density, count, cam_id, seq_len
+
+
+class WebcamT(Dataset):
+    def __init__(self, path='./citycam/preprocessed', out_shape=(120, 176), transform=None, gamma=300, get_cameras=False, cameras=None, load_all=True):
+        r"""
+        Args:
+            train: train (`True`) or test (`False`) images (default: `True`).
+            path: path for the dataset (default: "./TRANCOS_v3").
+            out_shape: shape of the output images (default: (120, 176)).
+            transform: transformations to apply to the images as np.arrays (default: None).
+            gamma: precision parameter of the Gaussian kernel (default: 30).
+            get_cameras: whether or not to return the camera ID of each image (default: `False`).
+            cameras: list with the camera IDs to be used, so that images from other cameras are discarded;
+                if `None`, all cameras are used; it has no effect if `get_cameras` is `False` (default: `None`).
+        """
+        self.path = path
+        self.out_shape = out_shape
+        self.transform = transform
+        self.gamma = gamma
+        self.load_all = load_all
+
+        self.image_files = []
+        for cam in os.listdir(self.path):
+            if not os.path.isdir(os.path.join(self.path, cam)):
+                continue
+
+            for seq in os.listdir(os.path.join(self.path, cam)):
+                if not os.path.isdir(os.path.join(self.path, cam, seq)):
+                    continue
+
+                if 'big_bus' in seq:
+                    continue
+
+                self.image_files.extend([os.path.join(cam, seq, f) for f in os.listdir(os.path.join(self.path, cam, seq)) if f[-4:] == '.jpg'])
+
+        self.cam_ids = {}
+        if get_cameras:
+            for img_f in self.image_files:
+                self.cam_ids[img_f] = int(img_f[0:img_f.find(os.sep)])
+
+            if cameras is not None:
+                # only keep images from the provided cameras
+                self.image_files = [img_f for img_f in self.image_files if self.cam_ids[img_f] in cameras]
+                self.cam_ids = {img_f: self.cam_ids[img_f] for img_f in self.image_files}
+
+        # get the coordinates of the bounding boxes of all vehicles in all images
+        self.bndboxes = {img_f: [] for img_f in self.image_files}
+        for img_f in self.image_files:
+            root = ET.parse(os.path.join(self.path, img_f.replace('.jpg', '.xml'))).getroot()
+            for vehicle in root.iter('vehicle'):
+                xmin = int(vehicle.find('bndbox').find('xmin').text)
+                ymin = int(vehicle.find('bndbox').find('ymin').text)
+                xmax = int(vehicle.find('bndbox').find('xmax').text)
+                ymax = int(vehicle.find('bndbox').find('ymax').text)
+                self.bndboxes[img_f].append((xmin, ymin, xmax, ymax))
+
+        self.image_files.sort()
+
+        if self.load_all:
+            # load all the data into memory
+            self.images, self.masks, self.densities = [], [], []
+            for img_f in self.image_files:
+                X, mask, density = self.load_example(img_f)
+                self.images.append(X)
+                self.masks.append(mask)
+                self.densities.append(density)
+
+    def load_example(self, img_f):
+        X = io.imread(os.path.join(self.path, img_f))
+        mask_f = os.path.join(img_f.split(os.sep)[0], img_f.split(os.sep)[1])+'-msk.npy'
+        mask = np.load(os.path.join(self.path, mask_f))
+        mask = mask[:, :, np.newaxis].astype('float32')
+        bndboxes = self.bndboxes[img_f]
+
+        H_orig, W_orig = X.shape[0], X.shape[1]
+        # reduce the size of image and mask by the given amount
+        H_orig, W_orig = X.shape[0], X.shape[1]
+        if H_orig != self.out_shape[0] or W_orig != self.out_shape[1]:
+            X = SkT.resize(X, self.out_shape, preserve_range=True).astype('uint8')
+            mask = SkT.resize(mask, self.out_shape, preserve_range=True).astype('float32')
+
+        # compute the density map
+        img_centers = [(int((xmin + xmax)/2.), int((ymin + ymax)/2.)) for xmin, ymin, xmax, ymax in bndboxes]
+        gammas = self.gamma*np.array([[1./np.absolute(xmax - xmin), 1./np.absolute(ymax - ymin)] for xmin, ymin, xmax, ymax in bndboxes])
+        # gammas = self.gamma*np.ones((len(bndboxes), 2))
+        density = density_map(
+            (H_orig, W_orig),
+            img_centers,
+            gammas,
+            out_shape=self.out_shape)
+        density = density[:, :, np.newaxis].astype('float32')
+
+        return X, mask, density
+
+    def __len__(self):
+        return len(self.image_files)
+
+    def __getitem__(self, i):
+        r"""
+        Returns:
+            X: image.
+            mask: binary mask of the image.
+            density: vehicle density map.
+            count: number of vehicles in the masked image.
+            cam_id: camera ID (only if `get_cameras` is `True`).
+        """
+
+        if self.load_all:
+            img_f = self.image_files[i]
+            X = self.images[i]
+            mask = self.masks[i]
+            density = self.densities[i]
+            bndboxes = self.bndboxes[img_f]
+        else:
+            img_f = self.image_files[i]
+            X, mask, density = self.load_example(img_f)
+            bndboxes = self.bndboxes[img_f]
+
+        # get the number of vehicles in the image and the camera ID
+        count = len(bndboxes)
+
+        if self.transform:
+            # apply the transformation to the image, mask and density map
+            X, mask, density = self.transform([X, mask, density])
+
+        if self.cam_ids:
+            cam_id = self.cam_ids[img_f]
+            return X, mask, density, count, cam_id
+        else:
+            return X, mask, density, count
+
+class WebcamTSeq(WebcamT):
+    r"""
+    Wrapper for the TRANCOS dataset, presented in:
+    Guerrero-Gómez-Olmedo et al., "Extremely overlapping vehicle counting.", IbPRIA 2015.
+
+    This version assumes the data is sequential, i.e. it returns sequences of images captured by the same camera.
+    """
+
+    def __init__(self, path='./citycam/preprocessed', out_shape=(120, 176), transform=NP_T.ToTensor(), gamma=30, max_len=None, cameras=None, load_all=True):
+        r"""
+        Args:
+            train: train (`True`) or test (`False`) images (default: `True`).
+            path: path for the dataset (default: "./citycam/preprocessed").
+            out_shape: shape of the output images (default: (120, 176)).
+            transform: transformations to apply to the images as np.arrays (default: `NP_T.ToTensor()`).
+            gamma: precision parameter of the Gaussian kernel (default: 30).
+            max_len: maximum sequence length (default: `None`).
+            cameras: list with the camera IDs to be used, so that images from other cameras are discarded;
+                if `None`, all cameras are used; it has no effect if `get_cameras` is `False` (default: `None`).
+        """
+        super(WebcamTSeq, self).__init__(path=path, out_shape=out_shape, transform=transform, gamma=gamma, get_cameras=True, cameras=cameras, load_all=load_all)
+
+        self.img2idx = {img: idx for idx, img in enumerate(self.image_files)}  # hash table from file names to indices
+        self.seqs = []
+        for i, img_f in enumerate(self.image_files):
+            seq_id = img_f.split(os.sep)
+            if i == 0:
+                self.seqs.append([img_f])
+                prev_seq_id = seq_id
+                continue
+
+            if (seq_id == prev_seq_id) and ((max_len is None) or (i%max_len > 0)):
+                self.seqs[-1].append(img_f)
             else:
-                X = torch.cat((X, Xj.unsqueeze(0)), dim=0)
-                mask = torch.cat((mask, maskj.unsqueeze(0)), dim=0)
-                density = torch.cat((density, densityj.unsqueeze(0)), dim=0)
-                count = torch.cat((count, torch.Tensor([countj])), dim=0)
+                self.seqs.append([img_f])
+            prev_seq_id = seq_id
 
-        if seq_len < self.max_len:
-            # pad the sequences with zeros so their lengths are all equal to max_len
-            Xpad = torch.zeros((self.max_len-seq_len, *X.shape[1:]))
-            maskpad = torch.zeros((self.max_len-seq_len, *mask.shape[1:]))
-            densitypad = torch.zeros((self.max_len-seq_len, *density.shape[1:]))
-            countpad = torch.zeros(self.max_len-seq_len)
+        self.max_len = max_len if (max_len is not None) else max([len(seq) for seq in self.seqs])   
 
-            X = torch.cat((X, Xpad), dim=0)
-            mask = torch.cat((mask, maskpad), dim=0)
-            density = torch.cat((density, densitypad), dim=0)
-            count = torch.cat((count, countpad), dim=0)
+    def __len__(self):
+        return len(self.seqs)
+
+    def __getitem__(self, i):
+        r"""
+        Returns:
+            X: sequence of images, tensor with shape (max_seq_len, channels, height, width)
+            mask: sequence of binary masks for each image, tensor with shape (max_seq_len, 1, height, width)
+            density: sequence of vehicle density maps for each image, tensor with shape (max_seq_len, 1, height, width)
+            count: sequence of vehicle counts for each image, tensor with shape (max_seq_len)
+            cam_id: camera ID, integer
+            seq_len: length of the sequence (before padding), integer
+        """
+        seq = self.seqs[i]
+        seq_len = len(seq)
+
+        # randomize the (random) transformations applied to the first image of the sequence
+        # and then apply the same transformations to the remaining images of the sequence
+        if isinstance(self.transform, T.Compose):
+            for transf in self.transform.transforms:
+                if hasattr(transf, 'rand_state'):
+                    transf.reset_rand_state()
+        elif hasattr(self.transform, 'rand_state'):
+            self.transform.reset_rand_state()
+
+        # build the sequences
+        X = torch.zeros(self.max_len, 3, self.out_shape[0], self.out_shape[1])
+        mask = torch.zeros(self.max_len, 1, self.out_shape[0], self.out_shape[1])
+        density = torch.zeros(self.max_len, 1, self.out_shape[0], self.out_shape[1])
+        count = torch.zeros(self.max_len)
+        for j, img_f in enumerate(seq):
+            idx = self.img2idx[img_f]
+            X[j], mask[j], density[j], count[j], cam_id = super().__getitem__(idx)
 
         return X, mask, density, count, cam_id, seq_len
 

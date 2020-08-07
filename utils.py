@@ -14,7 +14,7 @@ def gauss2d(shape, center, gamma, out_shape=None):
     x, y = np.meshgrid(x, y)
     x, y = x.astype(float)/Wo, y.astype(float)/Ho
     x0, y0 = float(center[0])/W, float(center[1])/H
-    G = np.exp(-gamma * ((x - x0)**2 + (y - y0)**2))  # Gaussian kernel centered in (x0, y0)
+    G = np.exp(-(1/2)*(((x - x0)*gamma[0])**2 + ((y - y0)*gamma[1])**2))  # Gaussian kernel centered in (x0, y0)
     return G/np.sum(G)  # normalized so it sums to 1
 
 def density_map(shape, centers, gammas, out_shape=None):
